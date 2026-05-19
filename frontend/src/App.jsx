@@ -5,6 +5,7 @@ import DashboardLayout from './components/ui/DashboardLayout'
 import PatientsPage from './pages/patients/PatientsPage'
 import AppointmentsPage from './pages/appointments/AppointmentsPage'
 import MedicalRecordsPage from './pages/medical_records/MedicalRecordsPage'
+import InventoryPage from './pages/inventory/InventoryPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="patients" element={<PatientsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="medical-records" element={<MedicalRecordsPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
