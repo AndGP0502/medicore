@@ -8,6 +8,7 @@ import MedicalRecordsPage from './pages/medical_records/MedicalRecordsPage'
 import InventoryPage from './pages/inventory/InventoryPage'
 import LaboratoryPage from './pages/laboratory/LaboratoryPage'
 import ReportsPage from './pages/reports/ReportsPage'
+import BillingPage from './pages/billing/BillingPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="laboratory" element={<LaboratoryPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="billing" element={<BillingPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

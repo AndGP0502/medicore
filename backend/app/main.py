@@ -10,6 +10,7 @@ import app.modules.patients.models
 import app.modules.appointments.models
 import app.modules.medical_records.models
 import app.modules.billing.models
+import app.modules.billing.sri_models
 import app.modules.inventory.models
 import app.modules.laboratory.models
 

@@ -1,0 +1,132 @@
+import uuid
+from datetime import datetime
+from xml.sax.saxutils import escape
+
+
+def _clave_acceso(fecha, tipo_comprobante, ruc, ambiente, serie, secuencial, codigo_numerico, tipo_emision):
+    fecha_fmt = datetime.strptime(fecha, "%Y-%m-%d").strftime("%d%m%Y")
+    clave = f"{fecha_fmt}{tipo_comprobante}{ruc}{ambiente}{serie}{secuencial}{codigo_numerico}{tipo_emision}"
+    digito = _modulo11(clave)
+    return clave + str(digito)
+
+
+def _modulo11(clave):
+    factores = [2, 3, 4, 5, 6, 7]
+    suma = 0
+    factor_idx = 0
+    for digito in reversed(clave):
+        suma += int(digito) * factores[factor_idx % 6]
+        factor_idx += 1
+    residuo = suma % 11
+    if residuo == 0: return 0
+    if residuo == 1: return 1
+    return 11 - residuo
+
+
+def _txt(valor):
+    return escape(str(valor or "").strip())
+
+
+def generar_xml_factura(config, factura, detalles):
+    fecha = factura.get("fecha_emision", datetime.now().strftime("%Y-%m-%d"))
+    secuencial = str(factura["secuencial"]).zfill(9)
+    serie = config["codigo_establecimiento"] + config["punto_emision"]
+    codigo_numerico = str(uuid.uuid4().int)[:8]
+    ambiente = config.get("ambiente", 2)
+    tipo_emision = config.get("tipo_emision", 1)
+
+    clave_acceso = _clave_acceso(fecha, "01", config["ruc"], ambiente, serie, secuencial, codigo_numerico, tipo_emision)
+    fecha_fmt = datetime.strptime(fecha, "%Y-%m-%d").strftime("%d/%m/%Y")
+
+    subtotal_0  = sum(d["subtotal"] for d in detalles if d["porcentaje_iva"] == 0)
+    subtotal_15 = sum(d["subtotal"] for d in detalles if d["porcentaje_iva"] == 15)
+    iva_15      = sum(d["iva"]      for d in detalles if d["porcentaje_iva"] == 15)
+    descuento   = sum(d["descuento"] * d["cantidad"] for d in detalles)
+    total       = subtotal_0 + subtotal_15 + iva_15
+
+    total_impuestos_xml = ""
+    if subtotal_0 > 0:
+        total_impuestos_xml += f"""
+            <totalImpuesto>
+                <codigo>2</codigo><codigoPorcentaje>0</codigoPorcentaje>
+                <baseImponible>{subtotal_0:.2f}</baseImponible>
+                <valor>0.00</valor>
+            </totalImpuesto>"""
+    if subtotal_15 > 0:
+        total_impuestos_xml += f"""
+            <totalImpuesto>
+                <codigo>2</codigo><codigoPorcentaje>4</codigoPorcentaje>
+                <baseImponible>{subtotal_15:.2f}</baseImponible>
+                <tarifa>15.00</tarifa>
+                <valor>{iva_15:.2f}</valor>
+            </totalImpuesto>"""
+
+    detalles_xml = ""
+    for d in detalles:
+        detalles_xml += f"""
+            <detalle>
+                <codigoPrincipal>SRV</codigoPrincipal>
+                <descripcion>{_txt(d["descripcion"])}</descripcion>
+                <cantidad>{d["cantidad"]:.2f}</cantidad>
+                <precioUnitario>{d["precio_unitario"]:.2f}</precioUnitario>
+                <descuento>{d["descuento"] * d["cantidad"]:.2f}</descuento>
+                <precioTotalSinImpuesto>{d["subtotal"]:.2f}</precioTotalSinImpuesto>
+                <impuestos>
+                    <impuesto>
+                        <codigo>2</codigo>
+                        <codigoPorcentaje>{"4" if d["porcentaje_iva"] == 15 else "0"}</codigoPorcentaje>
+                        <tarifa>{d["porcentaje_iva"]:.2f}</tarifa>
+                        <baseImponible>{d["subtotal"]:.2f}</baseImponible>
+                        <valor>{d["iva"]:.2f}</valor>
+                    </impuesto>
+                </impuestos>
+            </detalle>"""
+
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="2.1.0">
+    <infoTributaria>
+        <ambiente>{ambiente}</ambiente>
+        <tipoEmision>{tipo_emision}</tipoEmision>
+        <razonSocial>{_txt(config["razon_social"])}</razonSocial>
+        <nombreComercial>{_txt(config.get("nombre_comercial") or config["razon_social"])}</nombreComercial>
+        <ruc>{config["ruc"]}</ruc>
+        <claveAcceso>{clave_acceso}</claveAcceso>
+        <codDoc>01</codDoc>
+        <estab>{config["codigo_establecimiento"]}</estab>
+        <ptoEmi>{config["punto_emision"]}</ptoEmi>
+        <secuencial>{secuencial}</secuencial>
+        <dirMatriz>{_txt(config.get("direccion_matriz",""))}</dirMatriz>
+    </infoTributaria>
+    <infoFactura>
+        <fechaEmision>{fecha_fmt}</fechaEmision>
+        <dirEstablecimiento>{_txt(config.get("direccion_sucursal") or config.get("direccion_matriz","N/A"))}</dirEstablecimiento>
+        <obligadoContabilidad>NO</obligadoContabilidad>
+        <tipoIdentificacionComprador>{factura.get("tipo_identificacion","05")}</tipoIdentificacionComprador>
+        <razonSocialComprador>{_txt(factura["razon_social"])}</razonSocialComprador>
+        <identificacionComprador>{factura["identificacion"]}</identificacionComprador>
+        <direccionComprador>{_txt(factura.get("direccion","N/A"))}</direccionComprador>
+        <totalSinImpuestos>{subtotal_0 + subtotal_15:.2f}</totalSinImpuestos>
+        <totalDescuento>{descuento:.2f}</totalDescuento>
+        <totalConImpuestos>{total_impuestos_xml}
+        </totalConImpuestos>
+        <propina>0.00</propina>
+        <importeTotal>{total:.2f}</importeTotal>
+        <moneda>DOLAR</moneda>
+        <pagos>
+            <pago>
+                <formaPago>01</formaPago>
+                <total>{total:.2f}</total>
+                <plazo>0</plazo>
+                <unidadTiempo>dias</unidadTiempo>
+            </pago>
+        </pagos>
+    </infoFactura>
+    <detalles>{detalles_xml}
+    </detalles>
+    <infoAdicional>
+        <campoAdicional nombre="Telefono">{_txt(factura.get("telefono","N/A"))}</campoAdicional>
+        <campoAdicional nombre="Email">{_txt(factura.get("correo","N/A"))}</campoAdicional>
+    </infoAdicional>
+</factura>"""
+
+    return xml, clave_acceso, secuencial
