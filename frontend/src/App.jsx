@@ -1,9 +1,10 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardLayout from './components/ui/DashboardLayout'
 import PatientsPage from './pages/patients/PatientsPage'
 import AppointmentsPage from './pages/appointments/AppointmentsPage'
+import MedicalRecordsPage from './pages/medical_records/MedicalRecordsPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -19,6 +20,7 @@ export default function App() {
           <Route index element={<Navigate to="/patients" replace />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
+          <Route path="medical-records" element={<MedicalRecordsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
