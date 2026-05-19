@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { createAppointment } from '../../api/appointments'
 import { getPatients } from '../../api/patients'
+import { getUsers } from '../../api/users'
 import toast from 'react-hot-toast'
 
 export default function AppointmentModal({ onClose }) {
@@ -13,6 +14,11 @@ export default function AppointmentModal({ onClose }) {
   const { data: patientsData } = useQuery({
     queryKey: ['patients', ''],
     queryFn: () => getPatients({ search: '', page: 1, size: 100 }).then(r => r.data),
+  })
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers().then(r => r.data),
   })
 
   const mutation = useMutation({
@@ -45,6 +51,7 @@ export default function AppointmentModal({ onClose }) {
 
   const INPUT = { width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
   const patients = patientsData?.items || []
+  const users = usersData || []
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,61,107,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', fontFamily: "'Nunito','Segoe UI',sans-serif" }}
@@ -64,8 +71,11 @@ export default function AppointmentModal({ onClose }) {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>ID del doctor *</label>
-              <input value={form.doctor_id} onChange={e => set('doctor_id', e.target.value)} placeholder="UUID del doctor" style={INPUT} required />
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Doctor *</label>
+              <select value={form.doctor_id} onChange={e => set('doctor_id', e.target.value)} style={INPUT} required>
+                <option value="">Seleccionar doctor...</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
               <div>
