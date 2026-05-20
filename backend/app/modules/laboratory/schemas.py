@@ -1,17 +1,21 @@
 from pydantic import BaseModel
-from typing import Optional, List
-from uuid import UUID
+from typing import Optional
 from app.modules.laboratory.models import LabOrderStatus
 
 class LabOrderCreate(BaseModel):
-    patient_id: UUID
-    doctor_id: UUID
-    record_id: Optional[UUID] = None
+    patient_id: str
+    doctor_id: str
+    record_id: Optional[str] = None
+    tests: Optional[str] = None
+    notes: Optional[str] = None
+
+class LabOrderUpdate(BaseModel):
+    status: Optional[LabOrderStatus] = None
     tests: Optional[str] = None
     notes: Optional[str] = None
 
 class LabResultCreate(BaseModel):
-    order_id: UUID
+    order_id: str
     test_name: str
     value: Optional[str] = None
     unit: Optional[str] = None
@@ -19,9 +23,9 @@ class LabResultCreate(BaseModel):
     is_abnormal: Optional[str] = None
 
 class LabOrderOut(BaseModel):
-    id: UUID
-    patient_id: UUID
-    doctor_id: UUID
+    id: str
+    patient_id: str
+    doctor_id: str
     status: LabOrderStatus
     tests: Optional[str] = None
     notes: Optional[str] = None

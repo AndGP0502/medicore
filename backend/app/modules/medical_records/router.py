@@ -18,3 +18,7 @@ def get_patient_records(patient_id: str, page: int = Query(1, ge=1), size: int =
 @router.get("/{record_id}", response_model=MedicalRecordOut)
 def get_record(record_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return medical_record_service.get_by_id(db, record_id)
+
+@router.delete("/{record_id}", status_code=204)
+def delete_record(record_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    medical_record_service.delete(db, record_id)

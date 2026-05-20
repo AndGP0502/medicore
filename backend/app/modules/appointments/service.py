@@ -32,4 +32,9 @@ class AppointmentService:
         db.refresh(a)
         return a
 
+    def delete(self, db: Session, appt_id: str) -> None:
+        a = self.get_by_id(db, appt_id)
+        a.is_deleted = True
+        db.commit()
+
 appointment_service = AppointmentService()

@@ -23,3 +23,7 @@ def get_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(get_cu
 @router.put("/{patient_id}", response_model=PatientOut)
 def update_patient(patient_id: str, data: PatientUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return patient_service.update(db, patient_id, data)
+
+@router.delete("/{patient_id}", status_code=204)
+def delete_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    patient_service.delete(db, patient_id)

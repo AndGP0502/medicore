@@ -1,6 +1,4 @@
-import uuid
 from sqlalchemy import Column, String, Integer
-from sqlalchemy.dialects.postgresql import UUID
 from app.models.base_model import TimeStampedModel
 
 class ConfiguracionSRI(TimeStampedModel):

@@ -22,4 +22,9 @@ class MedicalRecordService:
             raise HTTPException(status_code=404, detail="Historia clinica no encontrada")
         return r
 
+    def delete(self, db: Session, record_id: str) -> None:
+        r = self.get_by_id(db, record_id)
+        r.is_deleted = True
+        db.commit()
+
 medical_record_service = MedicalRecordService()

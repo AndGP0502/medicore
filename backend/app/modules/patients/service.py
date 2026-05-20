@@ -36,4 +36,9 @@ class PatientService:
         db.refresh(p)
         return p
 
+    def delete(self, db: Session, patient_id: str) -> None:
+        p = self.get_by_id(db, patient_id)
+        p.is_deleted = True
+        db.commit()
+
 patient_service = PatientService()

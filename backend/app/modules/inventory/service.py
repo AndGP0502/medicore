@@ -18,6 +18,25 @@ class InventoryService:
             q = q.filter(Product.name.ilike(f"%{search}%"))
         return paginate(q.order_by(Product.name), page, size)
 
+    def get_by_id(self, db: Session, product_id: str) -> Product:
+        p = db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
+        if not p:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+        return p
+
+    def update_product(self, db: Session, product_id: str, data: dict) -> Product:
+        p = self.get_by_id(db, product_id)
+        for field, value in data.items():
+            setattr(p, field, value)
+        db.commit()
+        db.refresh(p)
+        return p
+
+    def delete_product(self, db: Session, product_id: str) -> None:
+        p = self.get_by_id(db, product_id)
+        p.is_deleted = True
+        db.commit()
+
     def add_lot(self, db: Session, data: LotCreate) -> Lot:
         lot = Lot(**data.model_dump())
         db.add(lot)

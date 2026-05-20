@@ -16,7 +16,16 @@ class AuthService:
         db.add(session)
         user.last_login = datetime.utcnow()
         db.commit()
-        return {"access_token": access_token, "refresh_token": refresh_token}
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token": access_token,
+            "user": {
+              "id": str(user.id),
+              "email": user.email,
+              "full_name": user.full_name
+            }
+        }
 
     def logout(self, db: Session, refresh_token: str):
         session = db.query(UserSession).filter(UserSession.refresh_token == refresh_token, UserSession.is_active == True).first()

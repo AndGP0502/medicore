@@ -1,15 +1,14 @@
 import uuid
 from sqlalchemy import Column, String, Text, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models.base_model import SoftDeleteModel
 
 class MedicalRecord(SoftDeleteModel):
     __tablename__ = "medical_records"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
-    doctor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    appointment_id = Column(UUID(as_uuid=True), ForeignKey("appointments.id"), nullable=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(36), ForeignKey("patients.id"), nullable=False)
+    doctor_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=True)
     chief_complaint = Column(Text)
     anamnesis = Column(Text)
     vital_signs = Column(JSON)
@@ -24,6 +23,6 @@ class MedicalRecord(SoftDeleteModel):
 
 class RecordTemplate(SoftDeleteModel):
     __tablename__ = "record_templates"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     specialty_name = Column(String(100), nullable=False)
     fields = Column(JSON, nullable=False)

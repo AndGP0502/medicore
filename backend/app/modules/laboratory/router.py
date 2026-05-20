@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.dependencies import get_db, get_current_user
-from app.modules.laboratory.schemas import LabOrderCreate, LabResultCreate, LabOrderOut
+from app.modules.laboratory.schemas import LabOrderCreate, LabOrderUpdate, LabResultCreate, LabOrderOut
 from app.modules.laboratory.service import lab_service
 from app.schemas.common import PaginatedResponse
 
@@ -15,6 +15,14 @@ def list_orders(patient_id: Optional[str] = None, page: int = 1, size: int = 20,
 @router.post("/orders", response_model=LabOrderOut, status_code=201)
 def create_order(data: LabOrderCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return lab_service.create_order(db, data)
+
+@router.put("/orders/{order_id}", response_model=LabOrderOut)
+def update_order(order_id: str, data: LabOrderUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return lab_service.update_order(db, order_id, data)
+
+@router.delete("/orders/{order_id}", status_code=204)
+def delete_order(order_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    lab_service.delete_order(db, order_id)
 
 @router.post("/results", status_code=201)
 def add_result(data: LabResultCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):

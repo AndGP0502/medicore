@@ -1,7 +1,6 @@
 import uuid
 import enum
 from sqlalchemy import Column, String, Date, Text, Boolean, ForeignKey, Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models.base_model import SoftDeleteModel
 
@@ -14,13 +13,13 @@ class Gender(str, enum.Enum):
 
 class Patient(SoftDeleteModel):
     __tablename__ = "patients"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     document_type = Column(String(20), default="cedula")
     document_number = Column(String(30), unique=True, nullable=False, index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-    gender = Column(SAEnum(Gender), nullable=False)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(SAEnum(Gender), nullable=True)
     blood_type = Column(SAEnum(BloodType), nullable=True)
     email = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
@@ -36,8 +35,8 @@ class Patient(SoftDeleteModel):
 
 class PatientContact(SoftDeleteModel):
     __tablename__ = "patient_contacts"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(36), ForeignKey("patients.id"), nullable=False)
     name = Column(String(200), nullable=False)
     relation = Column(String(50))
     phone = Column(String(20))
@@ -46,8 +45,8 @@ class PatientContact(SoftDeleteModel):
 
 class Insurance(SoftDeleteModel):
     __tablename__ = "insurances"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False, unique=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(36), ForeignKey("patients.id"), nullable=False, unique=True)
     provider = Column(String(200), nullable=False)
     policy_number = Column(String(100))
     plan = Column(String(100))

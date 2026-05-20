@@ -23,3 +23,7 @@ def get_appointment(appt_id: str, db: Session = Depends(get_db), _=Depends(get_c
 @router.put("/{appt_id}", response_model=AppointmentOut)
 def update_appointment(appt_id: str, data: AppointmentUpdate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return appointment_service.update(db, appt_id, data)
+
+@router.delete("/{appt_id}", status_code=204)
+def delete_appointment(appt_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    appointment_service.delete(db, appt_id)

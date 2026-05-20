@@ -31,3 +31,11 @@ class LotCreate(BaseModel):
     purchase_price: Optional[Decimal] = None
     sale_price: Optional[Decimal] = None
     expiry_date: Optional[date] = None
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    generic_name: Optional[str] = None
+    sku: Optional[str] = None
+    category: Optional[str] = None
+    unit: Optional[str] = None
+    min_stock: Optional[int] = None

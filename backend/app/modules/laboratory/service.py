@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.modules.laboratory.models import LabOrder, LabResult, LabOrderStatus
-from app.modules.laboratory.schemas import LabOrderCreate, LabResultCreate
+from app.modules.laboratory.schemas import LabOrderCreate, LabResultCreate, LabOrderUpdate
 from app.utils.pagination import paginate
 
 class LaboratoryService:
@@ -11,6 +11,25 @@ class LaboratoryService:
         db.commit()
         db.refresh(order)
         return order
+
+    def get_order(self, db: Session, order_id: str) -> LabOrder:
+        o = db.query(LabOrder).filter(LabOrder.id == order_id, LabOrder.is_deleted == False).first()
+        if not o:
+            raise HTTPException(status_code=404, detail="Orden no encontrada")
+        return o
+
+    def update_order(self, db: Session, order_id: str, data: LabOrderUpdate) -> LabOrder:
+        o = self.get_order(db, order_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(o, field, value)
+        db.commit()
+        db.refresh(o)
+        return o
+
+    def delete_order(self, db: Session, order_id: str) -> None:
+        o = self.get_order(db, order_id)
+        o.is_deleted = True
+        db.commit()
 
     def add_result(self, db: Session, data: LabResultCreate) -> LabResult:
         result = LabResult(**data.model_dump())

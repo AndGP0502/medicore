@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getPatients } from '../../api/patients'
+import { getMedicalRecords, deleteMedicalRecord } from '../../api/medicalRecords'
 import MedicalRecordModal from './MedicalRecordModal'
 import MedicalRecordDetail from './MedicalRecordDetail'
+import toast from 'react-hot-toast'
 
 export default function MedicalRecordsPage() {
   const [search, setSearch] = useState('')
@@ -27,8 +29,8 @@ export default function MedicalRecordsPage() {
       )}
 
       <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Historia Clinica</h1>
-        <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Selecciona un paciente para ver o crear su historia clinica</p>
+        <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Historia Clínica</h1>
+        <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Selecciona un paciente para ver o crear su historia clínica</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem' }}>
@@ -80,10 +82,22 @@ export default function MedicalRecordsPage() {
 }
 
 function PatientRecords({ patient, onNew, onView }) {
+  const queryClient = useQueryClient()
+
   const { data, isLoading } = useQuery({
     queryKey: ['medical-records', patient.id],
-    queryFn: () => import('../../api/medicalRecords').then(m => m.getMedicalRecords(patient.id, { page: 1, size: 20 })).then(r => r.data),
+    queryFn: () => getMedicalRecords(patient.id, { page: 1, size: 20 }).then(r => r.data),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteMedicalRecord,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['medical-records', patient.id] }); toast.success('Consulta eliminada') },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  function handleDelete(id) {
+    if (window.confirm('¿Eliminar esta consulta?')) deleteMutation.mutate(id)
+  }
 
   const records = data?.items || []
 
@@ -92,7 +106,7 @@ function PatientRecords({ patient, onNew, onView }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#0a3d6b' }}>{patient.first_name} {patient.last_name}</h2>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af' }}>{patient.document_number} ? {records.length} consultas</p>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af' }}>{patient.document_number} · {records.length} consultas</p>
         </div>
         <button onClick={onNew}
           style={{ padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -105,17 +119,17 @@ function PatientRecords({ patient, onNew, onView }) {
       ) : records.length === 0 ? (
         <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #e8edf2', padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>
           <p style={{ fontWeight: '600' }}>Sin consultas registradas</p>
-          <p style={{ fontSize: '0.8rem' }}>Crea la primera consulta con el boton de arriba</p>
+          <p style={{ fontSize: '0.8rem' }}>Crea la primera consulta con el botón de arriba</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {records.map(r => (
-            <div key={r.id} onClick={() => onView(r)}
-              style={{ background: 'white', borderRadius: '12px', border: '1px solid #e8edf2', padding: '1rem 1.25rem', cursor: 'pointer' }}
+            <div key={r.id}
+              style={{ background: 'white', borderRadius: '12px', border: '1px solid #e8edf2', padding: '1rem 1.25rem' }}
               onMouseEnter={e => e.currentTarget.style.borderColor = '#0d5fa3'}
               onMouseLeave={e => e.currentTarget.style.borderColor = '#e8edf2'}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div>
+                <div onClick={() => onView(r)} style={{ cursor: 'pointer', flex: 1 }}>
                   <p style={{ margin: '0 0 0.25rem', fontWeight: '700', fontSize: '0.9rem', color: '#1a202c' }}>
                     {r.chief_complaint || 'Sin motivo registrado'}
                   </p>
@@ -123,11 +137,17 @@ function PatientRecords({ patient, onNew, onView }) {
                     {new Date(r.created_at || Date.now()).toLocaleDateString('es-EC')}
                   </p>
                 </div>
-                {r.diagnosis?.length > 0 && (
-                  <span style={{ padding: '0.2rem 0.6rem', background: '#eff6ff', color: '#0d5fa3', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700' }}>
-                    {r.diagnosis[0].description}
-                  </span>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {r.diagnosis?.length > 0 && (
+                    <span style={{ padding: '0.2rem 0.6rem', background: '#eff6ff', color: '#0d5fa3', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700' }}>
+                      {r.diagnosis[0].description}
+                    </span>
+                  )}
+                  <button onClick={() => handleDelete(r.id)}
+                    style={{ padding: '0.3rem 0.65rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Eliminar
+                  </button>
+                </div>
               </div>
               {r.treatment && (
                 <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#4b5563' }}>Tratamiento: {r.treatment}</p>

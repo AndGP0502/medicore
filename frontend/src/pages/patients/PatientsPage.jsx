@@ -1,29 +1,47 @@
-﻿import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { getPatients } from '../../api/patients'
+import { getPatients, deletePatient } from '../../api/patients'
 import PatientModal from './PatientModal'
+import toast from 'react-hot-toast'
 
 export default function PatientsPage() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [editPatient, setEditPatient] = useState(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['patients', search],
     queryFn: () => getPatients({ search, page: 1, size: 20 }).then((r) => r.data),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: deletePatient,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['patients'] }); toast.success('Paciente eliminado') },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  function handleDelete(id) {
+    if (window.confirm('¿Eliminar este paciente?')) deleteMutation.mutate(id)
+  }
+
   const total = data?.total || 0
   const items = data?.items || []
 
   return (
     <div style={{ fontFamily: "'Nunito', 'Segoe UI', sans-serif" }}>
-      {showModal && <PatientModal onClose={() => setShowModal(false)} />}
+      {(showModal || editPatient) && (
+        <PatientModal
+          patient={editPatient}
+          onClose={() => { setShowModal(false); setEditPatient(null) }}
+        />
+      )}
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Pacientes</h1>
-        <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Gestion y registro de pacientes</p>
+        <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Gestión y registro de pacientes</p>
       </div>
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        {[{ label: 'Total', value: total }, { label: 'Activos', value: items.length }].map(s => (
+        {[{ label: 'Total', value: total }, { label: 'En esta página', value: items.length }].map(s => (
           <div key={s.label} style={{ background: 'white', borderRadius: '14px', padding: '1.25rem 1.5rem', border: '1px solid #e8edf2', flex: 1 }}>
             <p style={{ margin: '0 0 0.25rem', fontSize: '0.78rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase' }}>{s.label}</p>
             <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: '800', color: '#0a3d6b' }}>{s.value}</p>
@@ -47,7 +65,7 @@ export default function PatientsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Paciente', 'Documento', 'Telefono', 'Estado'].map(h => (
+                {['Paciente', 'Documento', 'Teléfono', 'Estado', 'Acciones'].map(h => (
                   <th key={h} style={{ padding: '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: '#6b7c93', textTransform: 'uppercase', borderBottom: '1px solid #f0f4f8' }}>{h}</th>
                 ))}
               </tr>
@@ -70,10 +88,20 @@ export default function PatientsPage() {
                   <td style={{ padding: '1rem 1.25rem' }}>
                     <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: '#dcfce7', color: '#16a34a' }}>Activo</span>
                   </td>
+                  <td style={{ padding: '1rem 1.25rem', display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={() => setEditPatient(p)}
+                      style={{ padding: '0.35rem 0.75rem', background: '#eff6ff', color: '#0d5fa3', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Editar
+                    </button>
+                    <button onClick={() => handleDelete(p.id)}
+                      style={{ padding: '0.35rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Eliminar
+                    </button>
+                  </td>
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>
+                <tr><td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>
                   {search ? 'Sin resultados' : 'No hay pacientes registrados'}
                 </td></tr>
               )}

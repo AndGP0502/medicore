@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { getAppointments } from '../../api/appointments'
+import { getAppointments, deleteAppointment } from '../../api/appointments'
+import { getPatients } from '../../api/patients'
 import AppointmentModal from './AppointmentModal'
+import toast from 'react-hot-toast'
 
 const STATUS = {
   scheduled: { label: 'Programada', color: '#dbeafe', text: '#1d4ed8' },
@@ -13,23 +15,46 @@ const STATUS = {
 
 export default function AppointmentsPage() {
   const [showModal, setShowModal] = useState(false)
+  const [editAppt, setEditAppt] = useState(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['appointments'],
     queryFn: () => getAppointments({ page: 1, size: 20 }).then((r) => r.data),
   })
 
+  // Cargamos pacientes para mostrar nombre en vez de ID
+  const { data: patientsData } = useQuery({
+    queryKey: ['patients', ''],
+    queryFn: () => getPatients({ search: '', page: 1, size: 100 }).then(r => r.data),
+  })
+
+  const patientMap = {}
+  patientsData?.items?.forEach(p => { patientMap[p.id] = `${p.first_name} ${p.last_name}` })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteAppointment,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); toast.success('Cita eliminada') },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  function handleDelete(id) {
+    if (window.confirm('¿Eliminar esta cita?')) deleteMutation.mutate(id)
+  }
+
   const items = data?.items || []
   const total = data?.total || 0
 
   return (
     <div style={{ fontFamily: "'Nunito', 'Segoe UI', sans-serif" }}>
-      {showModal && <AppointmentModal onClose={() => setShowModal(false)} />}
+      {(showModal || editAppt) && (
+        <AppointmentModal appointment={editAppt} onClose={() => { setShowModal(false); setEditAppt(null) }} />
+      )}
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Agenda medica</h1>
-          <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Gestion de citas y turnos</p>
+          <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Agenda médica</h1>
+          <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Gestión de citas y turnos</p>
         </div>
         <button onClick={() => setShowModal(true)}
           style={{ padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -38,7 +63,11 @@ export default function AppointmentsPage() {
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        {[{ label: 'Total citas', value: total }, { label: 'Hoy', value: items.filter(a => new Date(a.scheduled_at).toDateString() === new Date().toDateString()).length }].map(s => (
+        {[
+          { label: 'Total citas', value: total },
+          { label: 'Hoy', value: items.filter(a => new Date(a.scheduled_at).toDateString() === new Date().toDateString()).length },
+          { label: 'Pendientes', value: items.filter(a => a.status === 'scheduled').length },
+        ].map(s => (
           <div key={s.label} style={{ background: 'white', borderRadius: '14px', padding: '1.25rem 1.5rem', border: '1px solid #e8edf2', flex: 1 }}>
             <p style={{ margin: '0 0 0.25rem', fontSize: '0.78rem', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase' }}>{s.label}</p>
             <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: '800', color: '#0a3d6b' }}>{s.value}</p>
@@ -53,7 +82,7 @@ export default function AppointmentsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Fecha y hora', 'Paciente', 'Duracion', 'Motivo', 'Estado'].map(h => (
+                {['Fecha y hora', 'Paciente', 'Duración', 'Motivo', 'Estado', 'Acciones'].map(h => (
                   <th key={h} style={{ padding: '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: '#6b7c93', textTransform: 'uppercase', borderBottom: '1px solid #f0f4f8' }}>{h}</th>
                 ))}
               </tr>
@@ -68,17 +97,29 @@ export default function AppointmentsPage() {
                     <td style={{ padding: '1rem 1.25rem', fontWeight: '700', fontSize: '0.875rem', color: '#1a202c' }}>
                       {new Date(a.scheduled_at).toLocaleString('es-EC')}
                     </td>
-                    <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>{a.patient_id}</td>
+                    <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>
+                      {patientMap[a.patient_id] || a.patient_id}
+                    </td>
                     <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>{a.duration_minutes} min</td>
                     <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>{a.reason || '-'}</td>
                     <td style={{ padding: '1rem 1.25rem' }}>
                       <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: st.color, color: st.text }}>{st.label}</span>
                     </td>
+                    <td style={{ padding: '1rem 1.25rem', display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => setEditAppt(a)}
+                        style={{ padding: '0.35rem 0.75rem', background: '#eff6ff', color: '#0d5fa3', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Editar
+                      </button>
+                      <button onClick={() => handleDelete(a.id)}
+                        style={{ padding: '0.35rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Eliminar
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
               {items.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>No hay citas registradas</td></tr>
+                <tr><td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>No hay citas registradas</td></tr>
               )}
             </tbody>
           </table>

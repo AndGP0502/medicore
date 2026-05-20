@@ -1,15 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { createAppointment } from '../../api/appointments'
+import { createAppointment, updateAppointment } from '../../api/appointments'
 import { getPatients } from '../../api/patients'
 import { getUsers } from '../../api/users'
 import toast from 'react-hot-toast'
 
-export default function AppointmentModal({ onClose }) {
+const STATUS_OPTIONS = [
+  { value: 'scheduled', label: 'Programada' },
+  { value: 'confirmed', label: 'Confirmada' },
+  { value: 'in_progress', label: 'En curso' },
+  { value: 'completed', label: 'Completada' },
+  { value: 'cancelled', label: 'Cancelada' },
+]
+
+export default function AppointmentModal({ appointment, onClose }) {
+  const isEdit = !!appointment
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
-    patient_id: '', doctor_id: '', scheduled_at: '', duration_minutes: '30', reason: '', notes: ''
+    patient_id: '', doctor_id: '', scheduled_at: '', duration_minutes: '30', reason: '', notes: '', status: 'scheduled'
   })
+
+  useEffect(() => {
+    if (appointment) {
+      const d = new Date(appointment.scheduled_at)
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+      setForm({
+        patient_id: appointment.patient_id || '',
+        doctor_id: appointment.doctor_id || '',
+        scheduled_at: local,
+        duration_minutes: appointment.duration_minutes || '30',
+        reason: appointment.reason || '',
+        notes: appointment.notes || '',
+        status: appointment.status || 'scheduled',
+      })
+    }
+  }, [appointment])
 
   const { data: patientsData } = useQuery({
     queryKey: ['patients', ''],
@@ -22,15 +47,18 @@ export default function AppointmentModal({ onClose }) {
   })
 
   const mutation = useMutation({
-    mutationFn: createAppointment,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); toast.success('Cita registrada'); onClose() },
+    mutationFn: isEdit
+      ? (data) => updateAppointment(appointment.id, data)
+      : createAppointment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] })
+      toast.success(isEdit ? 'Cita actualizada' : 'Cita registrada')
+      onClose()
+    },
     onError: (err) => {
       const detail = err?.response?.data?.detail
-      if (Array.isArray(detail)) {
-        toast.error(detail[0]?.msg || 'Error de validacion')
-      } else {
-        toast.error(typeof detail === 'string' ? detail : 'Error al guardar')
-      }
+      if (Array.isArray(detail)) toast.error(detail[0]?.msg || 'Error de validación')
+      else toast.error(typeof detail === 'string' ? detail : 'Error al guardar')
     },
   })
 
@@ -43,6 +71,7 @@ export default function AppointmentModal({ onClose }) {
       doctor_id: form.doctor_id,
       scheduled_at: new Date(form.scheduled_at).toISOString(),
       duration_minutes: form.duration_minutes,
+      status: form.status,
     }
     if (form.reason) payload.reason = form.reason
     if (form.notes) payload.notes = form.notes
@@ -58,7 +87,7 @@ export default function AppointmentModal({ onClose }) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{ background: 'white', borderRadius: '18px', width: '100%', maxWidth: '500px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
         <div style={{ background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: '800' }}>Nueva cita</h2>
+          <h2 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: '800' }}>{isEdit ? 'Editar cita' : 'Nueva cita'}</h2>
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '6px 10px', fontSize: '1rem' }}>x</button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -83,7 +112,7 @@ export default function AppointmentModal({ onClose }) {
                 <input type="datetime-local" value={form.scheduled_at} onChange={e => set('scheduled_at', e.target.value)} style={INPUT} required />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Duracion</label>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Duración</label>
                 <select value={form.duration_minutes} onChange={e => set('duration_minutes', e.target.value)} style={INPUT}>
                   <option value="15">15 min</option>
                   <option value="30">30 min</option>
@@ -92,6 +121,14 @@ export default function AppointmentModal({ onClose }) {
                 </select>
               </div>
             </div>
+            {isEdit && (
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Estado</label>
+                <select value={form.status} onChange={e => set('status', e.target.value)} style={INPUT}>
+                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Motivo</label>
               <input value={form.reason} onChange={e => set('reason', e.target.value)} placeholder="Consulta general, control..." style={INPUT} />
@@ -102,11 +139,9 @@ export default function AppointmentModal({ onClose }) {
             </div>
           </div>
           <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'space-between', background: '#fafafa' }}>
-            <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563', fontFamily: 'inherit' }}>
-              Cancelar
-            </button>
+            <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563', fontFamily: 'inherit' }}>Cancelar</button>
             <button type="submit" disabled={mutation.isPending} style={{ padding: '0.65rem 1.5rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
-              {mutation.isPending ? 'Guardando...' : 'Registrar cita'}
+              {mutation.isPending ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Registrar cita')}
             </button>
           </div>
         </form>
