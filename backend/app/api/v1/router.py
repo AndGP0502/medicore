@@ -8,6 +8,7 @@ from app.modules.billing.router import router as billing_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.laboratory.router import router as laboratory_router
 from app.modules.reports.router import router as reports_router
+from app.modules.ai_assistant.router import router as ai_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -19,3 +20,4 @@ api_router.include_router(billing_router)
 api_router.include_router(inventory_router)
 api_router.include_router(laboratory_router)
 api_router.include_router(reports_router)
+api_router.include_router(ai_router)

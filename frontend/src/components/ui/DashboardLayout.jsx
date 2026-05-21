@@ -1,4 +1,4 @@
-﻿import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 
 const NAV = [
@@ -9,6 +9,7 @@ const NAV = [
   { to: '/inventory', label: 'Inventario' },
   { to: '/laboratory', label: 'Laboratorio' },
   { to: '/reports', label: 'Reportes' },
+  { to: '/ai-assistant', label: 'Asistente IA' },
 ]
 
 export default function DashboardLayout() {
@@ -26,7 +27,7 @@ export default function DashboardLayout() {
         <div style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <span style={{ color: 'white', fontWeight: '800', fontSize: '1.1rem' }}>MediCore</span>
         </div>
-        <nav style={{ flex: 1, padding: '0.75rem 0.625rem' }}>
+        <nav style={{ flex: 1, padding: '0.75rem 0.625rem', overflowY: 'auto' }}>
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to}
               style={({ isActive }) => ({
@@ -35,8 +36,7 @@ export default function DashboardLayout() {
                 color: isActive ? 'white' : 'rgba(255,255,255,0.6)',
                 background: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
                 fontWeight: isActive ? '700' : '500', fontSize: '0.875rem',
-              })}
-            >
+              })}>
               {item.label}
             </NavLink>
           ))}
