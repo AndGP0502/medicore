@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardLayout from './components/ui/DashboardLayout'
+import DashboardPage from './pages/dashboard/DashboardPage'
 import PatientsPage from './pages/patients/PatientsPage'
 import AppointmentsPage from './pages/appointments/AppointmentsPage'
 import MedicalRecordsPage from './pages/medical_records/MedicalRecordsPage'
@@ -10,6 +11,7 @@ import LaboratoryPage from './pages/laboratory/LaboratoryPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import BillingPage from './pages/billing/BillingPage'
 import AIAssistantPage from './pages/ai_assistant/AIAssistantPage'
+import UsersPage from './pages/users/UsersPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -22,7 +24,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
-          <Route index element={<Navigate to="/patients" replace />} />
+          <Route index element={<DashboardPage />} />
           <Route path="patients" element={<PatientsPage />} />
           <Route path="appointments" element={<AppointmentsPage />} />
           <Route path="medical-records" element={<MedicalRecordsPage />} />
@@ -31,6 +33,7 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="ai-assistant" element={<AIAssistantPage />} />
+          <Route path="users" element={<UsersPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
