@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { getAppointments } from '../../api/appointments'
+import { getAppointments, deleteAppointment } from '../../api/appointments'
 import AppointmentModal from './AppointmentModal'
+import toast from 'react-hot-toast'
 
 const STATUS = {
   scheduled:   { label: 'Programada', color: '#dbeafe', text: '#1d4ed8' },
@@ -14,6 +15,18 @@ const STATUS = {
 
 export default function AppointmentsPage() {
   const [showModal, setShowModal] = useState(false)
+  const [editAppt, setEditAppt] = useState(null)
+  const queryClient = useQueryClient()
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteAppointment,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); toast.success('Cita eliminada') },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  function handleDelete(id) {
+    if (window.confirm('¿Eliminar esta cita?')) deleteMutation.mutate(id)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['appointments'],
@@ -25,7 +38,7 @@ export default function AppointmentsPage() {
 
   return (
     <div style={{ fontFamily: "'Nunito','Segoe UI',sans-serif" }}>
-      {showModal && <AppointmentModal onClose={() => setShowModal(false)} />}
+      {(showModal || editAppt) && <AppointmentModal appointment={editAppt} onClose={() => { setShowModal(false); setEditAppt(null) }} />}
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -54,7 +67,7 @@ export default function AppointmentsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
-                {['Fecha y hora', 'Paciente', 'Documento', 'Duracion', 'Motivo', 'Estado'].map(h => (
+                {['Fecha y hora', 'Paciente', 'Documento', 'Duracion', 'Motivo', 'Estado', 'Acciones'].map(h => (
                   <th key={h} style={{ padding: '0.75rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: '#6b7c93', textTransform: 'uppercase', borderBottom: '1px solid #f0f4f8' }}>{h}</th>
                 ))}
               </tr>
@@ -84,6 +97,16 @@ export default function AppointmentsPage() {
                     <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>{a.reason || '-'}</td>
                     <td style={{ padding: '1rem 1.25rem' }}>
                       <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: st.color, color: st.text }}>{st.label}</span>
+                    </td>
+                    <td style={{ padding: '1rem 1.25rem', display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => setEditAppt(a)}
+                        style={{ padding: '0.35rem 0.75rem', background: '#eff6ff', color: '#0d5fa3', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Editar
+                      </button>
+                      <button onClick={() => handleDelete(a.id)}
+                        style={{ padding: '0.35rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 )

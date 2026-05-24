@@ -22,7 +22,7 @@ const STATUS_OPTIONS = [
 function LabOrderModal({ order, onClose }) {
   const queryClient = useQueryClient()
   const isEdit = !!order
-  const [form, setForm] = useState({ patient_id: '', doctor_id: '', tests: '', notes: '', status: 'pending' })
+  const [form, setForm] = useState({ patient_id: '', doctor_id: '', tests: '', notes: '', status: 'pending', scheduled_at: '' })
 
   useEffect(() => {
     if (order) {
@@ -32,6 +32,7 @@ function LabOrderModal({ order, onClose }) {
         tests: order.tests || '',
         notes: order.notes || '',
         status: order.status || 'pending',
+        scheduled_at: order.scheduled_at ? new Date(order.scheduled_at).toISOString().slice(0, 16) : '',
       })
     }
   }, [order])
@@ -65,6 +66,7 @@ function LabOrderModal({ order, onClose }) {
     const payload = { patient_id: form.patient_id, doctor_id: form.doctor_id }
     if (form.tests) payload.tests = form.tests
     if (form.notes) payload.notes = form.notes
+    if (form.scheduled_at) payload.scheduled_at = new Date(form.scheduled_at).toISOString()
     if (isEdit) payload.status = form.status
     mutation.mutate(payload)
   }
@@ -101,6 +103,10 @@ function LabOrderModal({ order, onClose }) {
                 </select>
               </div>
             )}
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Fecha programada</label>
+              <input type="datetime-local" value={form.scheduled_at} onChange={e => set('scheduled_at', e.target.value)} style={INPUT} />
+            </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Exámenes solicitados</label>
               <textarea value={form.tests} onChange={e => set('tests', e.target.value)} rows={3} placeholder="Hemograma, glucosa, colesterol..." style={{ ...INPUT, resize: 'vertical' }} />

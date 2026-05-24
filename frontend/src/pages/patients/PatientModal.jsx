@@ -44,14 +44,13 @@ export default function PatientModal({ patient, onClose }) {
 
   function set(field, value) { setForm((prev) => ({ ...prev, [field]: value })) }
 
-  function handleSubmit(e) {
-    e.preventDefault()
+  function handleSubmit() {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== ''))
     mutation.mutate(payload)
   }
 
   const INPUT = { width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
-  const totalSteps = isEdit ? 3 : 3
+  const totalSteps = 3
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,61,107,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', fontFamily: "'Nunito','Segoe UI',sans-serif" }}
@@ -67,7 +66,7 @@ export default function PatientModal({ patient, onClose }) {
         <div style={{ height: '3px', background: '#e8edf2' }}>
           <div style={{ height: '100%', background: '#0d5fa3', width: `${(step / totalSteps) * 100}%`, transition: 'width 0.3s' }} />
         </div>
-        <form onSubmit={handleSubmit} style={{ overflow: 'auto', flex: 1 }}>
+        <div style={{ overflow: 'auto', flex: 1 }}>
           <div style={{ padding: '1.5rem' }}>
             {step === 1 && (
               <>
@@ -82,17 +81,17 @@ export default function PatientModal({ patient, onClose }) {
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Número de documento *</label>
-                    <input value={form.document_number} onChange={e => set('document_number', e.target.value)} placeholder="0102030405" style={INPUT} required />
+                    <input value={form.document_number} onChange={e => set('document_number', e.target.value)} placeholder="0102030405" style={INPUT} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Nombres *</label>
-                    <input value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="Juan" style={INPUT} required />
+                    <input value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="Juan" style={INPUT} />
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Apellidos *</label>
-                    <input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Pérez" style={INPUT} required />
+                    <input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Pérez" style={INPUT} />
                   </div>
                 </div>
               </>
@@ -161,13 +160,13 @@ export default function PatientModal({ patient, onClose }) {
                 Siguiente
               </button>
             ) : (
-              <button type="submit" disabled={mutation.isPending}
+              <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
                 style={{ padding: '0.65rem 1.5rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                 {mutation.isPending ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Registrar paciente')}
               </button>
             )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

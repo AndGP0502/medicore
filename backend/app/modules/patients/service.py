@@ -9,6 +9,15 @@ class PatientService:
         existing = db.query(Patient).filter(Patient.document_number == data.document_number, Patient.is_deleted == False).first()
         if existing:
             raise HTTPException(status_code=400, detail="Ya existe un paciente con ese documento")
+        deleted = db.query(Patient).filter(Patient.document_number == data.document_number, Patient.is_deleted == True).first()
+        if deleted:
+            for field, value in data.model_dump().items():
+                setattr(deleted, field, value)
+            deleted.is_deleted = False
+            deleted.deleted_at = None
+            db.commit()
+            db.refresh(deleted)
+            return deleted
         patient = Patient(**data.model_dump())
         db.add(patient)
         db.commit()

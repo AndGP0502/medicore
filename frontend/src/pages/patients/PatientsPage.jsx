@@ -1,13 +1,43 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getPatients } from '../../api/patients'
+import { getPatients, deletePatient } from '../../api/patients'
+import { getMedicalRecords } from '../../api/medicalRecords'
+import { getLabOrders } from '../../api/laboratory'
+import { exportPatientPDF } from '../../utils/patientPDF'
 import PatientModal from './PatientModal'
+import toast from 'react-hot-toast'
 
 export default function PatientsPage() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const deleteMutation = useMutation({
+    mutationFn: deletePatient,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['patients'] }); toast.success('Paciente eliminado') },
+    onError: () => toast.error('Error al eliminar'),
+  })
+
+  function handleDelete(id) {
+    if (window.confirm('¿Eliminar este paciente?')) deleteMutation.mutate(id)
+  }
+
+  async function handleExportPDF(patient) {
+    try {
+      const [recordsRes, labRes] = await Promise.all([
+        getMedicalRecords(patient.id, { page: 1, size: 100 }),
+        getLabOrders({ patient_id: patient.id, page: 1, size: 100 }),
+      ])
+      const records = recordsRes.data?.items || []
+      const labOrders = labRes.data?.items || []
+      await exportPatientPDF(patient, records, labOrders)
+      toast.success('PDF generado')
+    } catch {
+      toast.error('Error al generar PDF')
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['patients', search],
@@ -80,6 +110,14 @@ export default function PatientsPage() {
                     <button onClick={() => navigate(`/appointments?patient_id=${p.id}`)}
                       style={{ padding: '0.35rem 0.75rem', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                       Citas
+                    </button>
+                    <button onClick={() => handleDelete(p.id)}
+                      style={{ padding: '0.35rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Eliminar
+                    </button>
+                    <button onClick={() => handleExportPDF(p)}
+                      style={{ padding: '0.35rem 0.75rem', background: '#fef9c3', color: '#a16207', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      PDF
                     </button>
                   </td>
                 </tr>

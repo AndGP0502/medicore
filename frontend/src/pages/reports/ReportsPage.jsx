@@ -94,7 +94,8 @@ export default function ReportsPage() {
   const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
   const [startDate, setStartDate] = useState(firstDay)
   const [endDate, setEndDate] = useState(today)
-  const [fetch, setFetch] = useState(false)
+  const [enabled, setEnabled] = useState(false)
+  const [queryDates, setQueryDates] = useState({ start: firstDay, end: today })
 
   const { data: patientStats } = useQuery({
     queryKey: ['patient-stats'],
@@ -102,10 +103,15 @@ export default function ReportsPage() {
   })
 
   const { data: revenue, isLoading: loadingRevenue } = useQuery({
-    queryKey: ['revenue', startDate, endDate, fetch],
-    queryFn: () => getRevenueReport({ start_date: startDate, end_date: endDate }).then(r => r.data),
-    enabled: fetch,
+    queryKey: ['revenue', queryDates.start, queryDates.end],
+    queryFn: () => getRevenueReport({ start_date: queryDates.start, end_date: queryDates.end }).then(r => r.data),
+    enabled,
   })
+
+  function handleGenerate() {
+    setQueryDates({ start: startDate, end: endDate })
+    setEnabled(true)
+  }
 
   const INPUT = { padding: '0.6rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', fontFamily: 'inherit' }
 
@@ -150,7 +156,7 @@ export default function ReportsPage() {
             <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#374151' }}>Hasta:</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={INPUT} />
           </div>
-          <button onClick={() => setFetch(f => !f)}
+          <button onClick={handleGenerate}
             style={{ padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
             Generar reporte
           </button>
