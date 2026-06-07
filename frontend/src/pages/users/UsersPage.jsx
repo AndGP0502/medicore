@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, getRoles, createUser, updateUser, deleteUser } from '../../api/users'
+import { getUsers, getRoles, createUser, updateUser, deleteUser, createRole, deleteRole, changePassword } from '../../api/users'
 import toast from 'react-hot-toast'
 
 const ROLE_COLORS = {
@@ -17,6 +17,96 @@ const ROLE_LABELS = {
   cashier: 'Cajero', lab: 'Laboratorista', pharmacy: 'Farmaceutico',
 }
 
+function getRoleStyle(roleName) {
+  return ROLE_COLORS[roleName] || { bg: '#f0f4f8', text: '#374151' }
+}
+
+function getRoleLabel(roleName) {
+  return ROLE_LABELS[roleName] || (roleName ? roleName.charAt(0).toUpperCase() + roleName.slice(1).replace(/_/g, ' ') : 'Sin rol')
+}
+
+// Modal gestionar roles
+function RolesModal({ roles, onClose }) {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({ name: '', description: '' })
+
+  const createMutation = useMutation({
+    mutationFn: createRole,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['roles'] }); toast.success('Rol creado'); setForm({ name: '', description: '' }) },
+    onError: (err) => { const d = err?.response?.data?.detail; toast.error(typeof d === 'string' ? d : 'Error al crear rol') },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteRole,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['roles'] }); toast.success('Rol eliminado') },
+    onError: (err) => { const d = err?.response?.data?.detail; toast.error(typeof d === 'string' ? d : 'No se puede eliminar') },
+  })
+
+  const INPUT = { width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(10,61,107,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', fontFamily: "'Nunito','Segoe UI',sans-serif" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: 'white', borderRadius: '18px', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: '800' }}>Gestionar roles</h2>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '6px 10px' }}>x</button>
+        </div>
+
+        <div style={{ padding: '1.25rem', borderBottom: '1px solid #f0f4f8' }}>
+          <p style={{ margin: '0 0 0.75rem', fontSize: '0.8rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Crear nuevo rol</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.75rem', alignItems: 'end' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.75rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Nombre *</label>
+              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="ej: enfermera" style={INPUT} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.75rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Descripcion</label>
+              <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Descripcion del rol" style={INPUT} />
+            </div>
+            <button onClick={() => { if (!form.name.trim()) { toast.error('Ingresa el nombre del rol'); return } createMutation.mutate(form) }}
+              disabled={createMutation.isPending}
+              style={{ padding: '0.65rem 1rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+              + Crear
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+          <p style={{ margin: '0 0 0.75rem', fontSize: '0.8rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Roles existentes</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {roles?.map(role => {
+              const style = getRoleStyle(role.name)
+              return (
+                <div key={role.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e8edf2' }}>
+                  <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: style.bg, color: style.text, minWidth: '100px', textAlign: 'center' }}>
+                    {getRoleLabel(role.name)}
+                  </span>
+                  <span style={{ flex: 1, fontSize: '0.8rem', color: '#6b7c93' }}>{role.description || 'Sin descripcion'}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>{role.name}</span>
+                  <button onClick={() => { if (window.confirm(`Eliminar el rol "${getRoleLabel(role.name)}"?`)) deleteMutation.mutate(role.id) }}
+                    style={{ padding: '0.3rem 0.6rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Eliminar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f0f4f8', background: '#fafafa' }}>
+          <button onClick={onClose}
+            style={{ padding: '0.65rem 1.5rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function UserModal({ user, roles, onClose }) {
   const queryClient = useQueryClient()
   const isEdit = !!user
@@ -30,15 +120,8 @@ function UserModal({ user, roles, onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? updateUser(user.id, data) : createUser(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      toast.success(isEdit ? 'Usuario actualizado' : 'Usuario creado')
-      onClose()
-    },
-    onError: (err) => {
-      const d = err?.response?.data?.detail
-      toast.error(typeof d === 'string' ? d : 'Error al guardar')
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); toast.success(isEdit ? 'Usuario actualizado' : 'Usuario creado'); onClose() },
+    onError: (err) => { const d = err?.response?.data?.detail; toast.error(typeof d === 'string' ? d : 'Error al guardar') },
   })
 
   function set(field, value) { setForm(prev => ({ ...prev, [field]: value })) }
@@ -59,7 +142,7 @@ function UserModal({ user, roles, onClose }) {
       <div style={{ background: 'white', borderRadius: '18px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
         <div style={{ background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: '800' }}>{isEdit ? 'Editar usuario' : 'Nuevo usuario'}</h2>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '6px 10px', fontSize: '1rem' }}>x</button>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '6px 10px' }}>x</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -81,7 +164,7 @@ function UserModal({ user, roles, onClose }) {
               <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Rol *</label>
               <select value={form.role_id} onChange={e => set('role_id', e.target.value)} style={INPUT} required>
                 <option value="">Seleccionar rol...</option>
-                {roles?.map(r => <option key={r.id} value={r.id}>{ROLE_LABELS[r.name] || r.name}</option>)}
+                {roles?.map(r => <option key={r.id} value={r.id}>{getRoleLabel(r.name)}</option>)}
               </select>
             </div>
             {isEdit && (
@@ -105,11 +188,9 @@ function UserModal({ user, roles, onClose }) {
 
 function ChangePasswordModal({ onClose }) {
   const [form, setForm] = useState({ current_password: '', new_password: '', confirm: '' })
+
   const mutation = useMutation({
-    mutationFn: () => {
-      const { changePassword } = require('../../api/users')
-      return changePassword({ current_password: form.current_password, new_password: form.new_password })
-    },
+    mutationFn: () => changePassword({ current_password: form.current_password, new_password: form.new_password }),
     onSuccess: () => { toast.success('Contrasena actualizada'); onClose() },
     onError: (err) => { const d = err?.response?.data?.detail; toast.error(typeof d === 'string' ? d : 'Error al actualizar') },
   })
@@ -119,7 +200,7 @@ function ChangePasswordModal({ onClose }) {
   function handleSubmit(e) {
     e.preventDefault()
     if (form.new_password !== form.confirm) { toast.error('Las contrasenas no coinciden'); return }
-    if (form.new_password.length < 6) { toast.error('La contrasena debe tener al menos 6 caracteres'); return }
+    if (form.new_password.length < 6) { toast.error('Minimo 6 caracteres'); return }
     mutation.mutate()
   }
 
@@ -135,18 +216,12 @@ function ChangePasswordModal({ onClose }) {
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Contrasena actual *</label>
-              <input type="password" value={form.current_password} onChange={e => set('current_password', e.target.value)} style={INPUT} required />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Nueva contrasena *</label>
-              <input type="password" value={form.new_password} onChange={e => set('new_password', e.target.value)} placeholder="Minimo 6 caracteres" style={INPUT} required minLength={6} />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>Confirmar contrasena *</label>
-              <input type="password" value={form.confirm} onChange={e => set('confirm', e.target.value)} style={INPUT} required />
-            </div>
+            {[['current_password','Contrasena actual','password'],['new_password','Nueva contrasena','password'],['confirm','Confirmar contrasena','password']].map(([field, label, type]) => (
+              <div key={field}>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.78rem', fontWeight: '700', color: '#374151', textTransform: 'uppercase' }}>{label} *</label>
+                <input type={type} value={form[field]} onChange={e => set(field, e.target.value)} style={INPUT} required />
+              </div>
+            ))}
           </div>
           <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f0f4f8', display: 'flex', justifyContent: 'space-between', background: '#fafafa' }}>
             <button type="button" onClick={onClose} style={{ padding: '0.65rem 1.25rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', background: 'white', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600', color: '#4b5563', fontFamily: 'inherit' }}>Cancelar</button>
@@ -165,6 +240,7 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false)
   const [editUser, setEditUser] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [showRoles, setShowRoles] = useState(false)
 
   const { data: users, isLoading } = useQuery({ queryKey: ['users'], queryFn: () => getUsers().then(r => r.data) })
   const { data: roles } = useQuery({ queryKey: ['roles'], queryFn: () => getRoles().then(r => r.data) })
@@ -175,22 +251,23 @@ export default function UsersPage() {
     onError: () => toast.error('Error al desactivar'),
   })
 
-  function handleDelete(user) {
-    if (window.confirm(`Desactivar al usuario ${user.full_name}?`)) deleteMutation.mutate(user.id)
-  }
-
   return (
     <div style={{ fontFamily: "'Nunito','Segoe UI',sans-serif" }}>
       {showModal && <UserModal roles={roles} onClose={() => setShowModal(false)} />}
       {editUser && <UserModal user={editUser} roles={roles} onClose={() => setEditUser(null)} />}
       {showPassword && <ChangePasswordModal onClose={() => setShowPassword(false)} />}
+      {showRoles && <RolesModal roles={roles} onClose={() => setShowRoles(false)} />}
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.5rem', fontWeight: '800', color: '#0a3d6b' }}>Gestion de usuarios</h1>
           <p style={{ margin: 0, color: '#6b7c93', fontSize: '0.875rem' }}>Administra el acceso al sistema</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowRoles(true)}
+            style={{ padding: '0.6rem 1.25rem', background: 'white', color: '#7c3aed', border: '1.5px solid #7c3aed', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Gestionar roles
+          </button>
           <button onClick={() => setShowPassword(true)}
             style={{ padding: '0.6rem 1.25rem', background: 'white', color: '#0a3d6b', border: '1.5px solid #0a3d6b', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
             Cambiar contrasena
@@ -216,7 +293,7 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {users?.map((u, i) => {
-                const roleColor = ROLE_COLORS[u.role?.name] || { bg: '#f3f4f6', text: '#374151' }
+                const roleStyle = getRoleStyle(u.role?.name)
                 return (
                   <tr key={u.id} style={{ borderBottom: i < users.length - 1 ? '1px solid #f0f4f8' : 'none' }}
                     onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
@@ -231,8 +308,8 @@ export default function UsersPage() {
                     </td>
                     <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#4b5563' }}>{u.email}</td>
                     <td style={{ padding: '1rem 1.25rem' }}>
-                      <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: roleColor.bg, color: roleColor.text }}>
-                        {ROLE_LABELS[u.role?.name] || u.role?.name || 'Sin rol'}
+                      <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '700', background: roleStyle.bg, color: roleStyle.text }}>
+                        {getRoleLabel(u.role?.name)}
                       </span>
                     </td>
                     <td style={{ padding: '1rem 1.25rem' }}>
@@ -245,7 +322,7 @@ export default function UsersPage() {
                         style={{ padding: '0.35rem 0.75rem', background: '#eff6ff', color: '#0d5fa3', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                         Editar
                       </button>
-                      <button onClick={() => handleDelete(u)}
+                      <button onClick={() => { if (window.confirm(`Desactivar a ${u.full_name}?`)) deleteMutation.mutate(u.id) }}
                         style={{ padding: '0.35rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                         Desactivar
                       </button>

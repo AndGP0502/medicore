@@ -12,6 +12,7 @@ import ReportsPage from './pages/reports/ReportsPage'
 import BillingPage from './pages/billing/BillingPage'
 import AIAssistantPage from './pages/ai_assistant/AIAssistantPage'
 import UsersPage from './pages/users/UsersPage'
+import ExcelPage from './pages/excel/ExcelPage'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="billing" element={<BillingPage />} />
           <Route path="ai-assistant" element={<AIAssistantPage />} />
           <Route path="users" element={<UsersPage />} />
+          <Route path="excel" element={<ExcelPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

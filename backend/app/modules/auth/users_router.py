@@ -19,17 +19,40 @@ def list_roles(db: Session = Depends(get_db), _=Depends(get_current_user)):
     return db.query(Role).filter(Role.is_active == True).all()
 
 
+@router.post("/roles", response_model=RoleOut, status_code=201)
+def create_role(data: dict, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    name = data.get("name", "").lower().strip().replace(" ", "_")
+    if not name:
+        raise HTTPException(status_code=400, detail="El nombre del rol es requerido")
+    existing = db.query(Role).filter(Role.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya existe un rol con ese nombre")
+    role = Role(name=name, description=data.get("description", ""))
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+    return role
+
+
+@router.delete("/roles/{role_id}")
+def delete_role(role_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Rol no encontrado")
+    users_with_role = db.query(User).filter(User.role_id == role_id, User.is_active == True).count()
+    if users_with_role > 0:
+        raise HTTPException(status_code=400, detail=f"No se puede eliminar: {users_with_role} usuario(s) tienen este rol")
+    role.is_active = False
+    db.commit()
+    return {"message": "Rol eliminado"}
+
+
 @router.post("", response_model=UserOut, status_code=201)
 def create_user(data: UserCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email")
-    user = User(
-        email=data.email,
-        hashed_password=hash_password(data.password),
-        full_name=data.full_name,
-        role_id=data.role_id,
-    )
+    user = User(email=data.email, hashed_password=hash_password(data.password), full_name=data.full_name, role_id=data.role_id)
     db.add(user)
     db.commit()
     db.refresh(user)

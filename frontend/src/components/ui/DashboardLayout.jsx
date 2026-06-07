@@ -10,6 +10,7 @@ const NAV = [
   { to: '/inventory', label: 'Inventario' },
   { to: '/laboratory', label: 'Laboratorio' },
   { to: '/reports', label: 'Reportes' },
+  { to: '/excel', label: 'Importar / Exportar' },
   { to: '/ai-assistant', label: 'Asistente IA' },
   { to: '/users', label: 'Usuarios' },
 ]
@@ -35,7 +36,7 @@ export default function DashboardLayout() {
           </div>
           <span style={{ color: 'white', fontWeight: '800', fontSize: '1.1rem' }}>MediCore</span>
         </div>
-        <nav style={{ flex: 1, padding: '0.75rem 0.625rem', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '0.75rem 0.625rem', overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end}
               style={({ isActive }) => ({
