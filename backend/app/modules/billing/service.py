@@ -6,7 +6,10 @@ from app.modules.billing.models import Invoice, InvoiceItem, Payment, InvoiceSta
 from app.modules.billing.sri_models import ConfiguracionSRI
 from app.modules.billing.schemas import InvoiceCreate, PaymentCreate
 from app.modules.billing.sri_schemas import ConfigSRICreate
+from app.modules.patients.models import Patient
 from app.utils.pagination import paginate
+import os
+import traceback
 
 
 class BillingService:
@@ -17,11 +20,24 @@ class BillingService:
     def create_invoice(self, db: Session, data: InvoiceCreate) -> Invoice:
         subtotal = sum(item.quantity * item.unit_price for item in data.items)
         tax = subtotal * Decimal("0.15")
-        invoice = Invoice(patient_id=data.patient_id, number=self._next_number(db), subtotal=subtotal, tax=tax, total=subtotal + tax, notes=data.notes)
+        invoice = Invoice(
+            patient_id=data.patient_id,
+            number=self._next_number(db),
+            subtotal=subtotal,
+            tax=tax,
+            total=subtotal + tax,
+            notes=data.notes
+        )
         db.add(invoice)
         db.flush()
         for item in data.items:
-            db.add(InvoiceItem(invoice_id=invoice.id, description=item.description, quantity=item.quantity, unit_price=item.unit_price, total=item.quantity * item.unit_price))
+            db.add(InvoiceItem(
+                invoice_id=invoice.id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total=item.quantity * item.unit_price
+            ))
         db.commit()
         db.refresh(invoice)
         return invoice
@@ -52,6 +68,26 @@ class BillingService:
         db.refresh(payment)
         return payment
 
+    def get_config_sri_safe(self, db: Session):
+        config = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
+        if not config:
+            return {"configured": False}
+        return {
+            "configured": True,
+            "id": config.id,
+            "ruc": config.ruc,
+            "razon_social": config.razon_social,
+            "nombre_comercial": config.nombre_comercial,
+            "direccion_matriz": config.direccion_matriz,
+            "direccion_sucursal": config.direccion_sucursal,
+            "codigo_establecimiento": config.codigo_establecimiento,
+            "punto_emision": config.punto_emision,
+            "ambiente": config.ambiente,
+            "tipo_emision": config.tipo_emision,
+            "siguiente_secuencial": config.siguiente_secuencial,
+            "tiene_certificado": bool(config.ruta_certificado and os.path.exists(config.ruta_certificado)),
+        }
+
     def get_config_sri(self, db: Session) -> ConfiguracionSRI:
         config = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
         if not config:
@@ -78,27 +114,39 @@ class BillingService:
 
         config = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
         if not config:
-            raise HTTPException(status_code=400, detail="No hay configuracion SRI. Configura primero.")
+            raise HTTPException(status_code=400, detail="No hay configuracion SRI.")
+
+        if not config.ruta_certificado or not os.path.exists(config.ruta_certificado):
+            raise HTTPException(status_code=400, detail="No hay certificado .p12 cargado.")
+
+        if not config.clave_certificado:
+            raise HTTPException(status_code=400, detail="Falta la clave del certificado .p12.")
 
         invoice = self.get_by_id(db, invoice_id)
-        patient = invoice.patient
+        patient = db.query(Patient).filter(Patient.id == invoice.patient_id).first()
 
         config_dict = {
-            "ruc": config.ruc, "razon_social": config.razon_social,
-            "nombre_comercial": config.nombre_comercial, "direccion_matriz": config.direccion_matriz,
-            "direccion_sucursal": config.direccion_sucursal, "codigo_establecimiento": config.codigo_establecimiento,
-            "punto_emision": config.punto_emision, "ambiente": config.ambiente, "tipo_emision": config.tipo_emision,
-            "ruta_certificado": config.ruta_certificado, "clave_certificado": config.clave_certificado,
+            "ruc": config.ruc,
+            "razon_social": config.razon_social,
+            "nombre_comercial": config.nombre_comercial or config.razon_social,
+            "direccion_matriz": config.direccion_matriz,
+            "direccion_sucursal": config.direccion_sucursal or config.direccion_matriz,
+            "codigo_establecimiento": config.codigo_establecimiento,
+            "punto_emision": config.punto_emision,
+            "ambiente": config.ambiente,
+            "tipo_emision": config.tipo_emision,
+            "ruta_certificado": config.ruta_certificado,
+            "clave_certificado": config.clave_certificado,
         }
 
         factura_dict = {
-            "fecha_emision": datetime.utcnow().strftime("%Y-%m-%d"),
+            "fecha_emision": datetime.now().strftime("%Y-%m-%d"),
             "identificacion": patient.document_number if patient else "9999999999999",
             "razon_social": f"{patient.first_name} {patient.last_name}" if patient else "CONSUMIDOR FINAL",
             "tipo_identificacion": "05",
-            "correo": patient.email or "" if patient else "",
-            "telefono": patient.phone or "" if patient else "",
-            "direccion": patient.address or "N/A" if patient else "N/A",
+            "correo": (patient.email or "") if patient else "",
+            "telefono": (patient.phone or "") if patient else "",
+            "direccion": (patient.address or "N/A") if patient else "N/A",
             "secuencial": config.siguiente_secuencial,
         }
 
@@ -108,20 +156,74 @@ class BillingService:
             cantidad = float(item.quantity)
             subtotal = precio * cantidad
             iva = subtotal * 0.15
-            detalles.append({"descripcion": item.description, "cantidad": cantidad, "precio_unitario": precio, "descuento": 0, "porcentaje_iva": 15, "subtotal": subtotal, "iva": iva, "total": subtotal + iva})
+            detalles.append({
+                "descripcion": item.description,
+                "cantidad": cantidad,
+                "precio_unitario": precio,
+                "descuento": 0,
+                "porcentaje_iva": 15,
+                "subtotal": subtotal,
+                "iva": iva,
+                "total": subtotal + iva,
+            })
 
         try:
+            print("=== [SRI] PASO 1: Generando XML ===")
             xml_content, clave_acceso, secuencial = generar_xml_factura(config_dict, factura_dict, detalles)
+            print(f"=== [SRI] Clave acceso: {clave_acceso}")
+            print(f"=== [SRI] Ambiente: {config.ambiente}")
+            print(f"=== [SRI] RUC: {config.ruc}")
+
+            # Guardar XML sin firmar para debug y para Java
+            with open("debug_xml_sin_firmar.xml", "w", encoding="utf-8") as f:
+                f.write(xml_content)
+            print("=== XML sin firmar guardado ===")
+
+            print("=== [SRI] PASO 2: Firmando XML ===")
             xml_firmado = firmar_xml(xml_content, config.ruta_certificado, config.clave_certificado)
+            print("=== [SRI] Firma OK ===")
+            print(f"=== XML firmado length: {len(xml_firmado)}")
+            print(f"=== XML firmado inicio: {xml_firmado[:200]}")
+
+            # Guardar XML firmado para debug
+            with open("debug_xml_firmado.xml", "w", encoding="utf-8") as f:
+                f.write(xml_firmado)
+            print("=== XML firmado guardado ===")
+
+            print("=== [SRI] PASO 3: Enviando al SRI ===")
             resultado_envio = enviar_comprobante(xml_firmado, config.ambiente)
+            print(f"=== [SRI] Resultado envio: {resultado_envio}")
+
             if not resultado_envio["ok"]:
                 return {"ok": False, "error": f"SRI rechazo: {resultado_envio['mensajes']}"}
-            time.sleep(10)
-            resultado_auth = consultar_autorizacion(clave_acceso, config.ambiente)
-            config.siguiente_secuencial += 1
-            db.commit()
-            return {"ok": resultado_auth.get("ok", False), "estado": resultado_auth.get("estado", "PENDIENTE"), "clave_acceso": clave_acceso, "numero_autorizacion": resultado_auth.get("numero_autorizacion", ""), "factura_id": invoice_id}
+
+            print("=== [SRI] PASO 4: Consultando autorizacion ===")
+            resultado_auth = {"ok": False, "estado": "PENDIENTE"}
+            for intento in range(10):
+                time.sleep(15)
+                resultado_auth = consultar_autorizacion(clave_acceso, config.ambiente)
+                print(f"=== [SRI] Intento {intento+1}: {resultado_auth}")
+                if resultado_auth.get("ok") or resultado_auth.get("estado") not in ("PENDIENTE", "ERROR"):
+                    break
+
+            if resultado_auth.get("ok"):
+                config.siguiente_secuencial += 1
+                invoice.status = InvoiceStatus.PAID
+                db.commit()
+                print("=== [SRI] AUTORIZADO OK ===")
+
+            return {
+                "ok": resultado_auth.get("ok", False),
+                "estado": resultado_auth.get("estado", "PENDIENTE"),
+                "clave_acceso": clave_acceso,
+                "numero_autorizacion": resultado_auth.get("numero_autorizacion", ""),
+                "factura_id": invoice_id,
+                "mensajes": str(resultado_auth.get("mensajes", "")),
+            }
+
         except Exception as e:
+            print(f"=== [SRI] ERROR: {e} ===")
+            traceback.print_exc()
             return {"ok": False, "error": str(e)}
 
 

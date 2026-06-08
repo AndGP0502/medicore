@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File
 from sqlalchemy.orm import Session
+import shutil, os
 from app.core.dependencies import get_db, get_current_user
 from app.modules.billing.schemas import InvoiceCreate, PaymentCreate, InvoiceOut
 from app.modules.billing.sri_schemas import ConfigSRICreate, ConfigSRIOut
@@ -28,13 +29,24 @@ def delete_invoice(invoice_id: str, db: Session = Depends(get_db), _=Depends(get
 def add_payment(data: PaymentCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return billing_service.add_payment(db, data)
 
-@router.get("/config-sri", response_model=ConfigSRIOut)
+@router.get("/config-sri")
 def get_config_sri(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return billing_service.get_config_sri(db)
+    return billing_service.get_config_sri_safe(db)
 
 @router.post("/config-sri", response_model=ConfigSRIOut)
 def save_config_sri(data: ConfigSRICreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return billing_service.save_config_sri(db, data)
+
+@router.post("/config-sri/upload-certificado")
+def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)):
+    if not file.filename.endswith('.p12'):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos .p12")
+    dest = os.path.join("certificados", "firma.p12")
+    os.makedirs("certificados", exist_ok=True)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"message": "Certificado subido correctamente", "path": os.path.abspath(dest)}
 
 @router.post("/invoices/{invoice_id}/emitir")
 def emitir_factura(invoice_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
