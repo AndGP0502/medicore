@@ -29,6 +29,7 @@ class InvoiceItem(SoftDeleteModel):
     description = Column(String(300), nullable=False)
     quantity = Column(Numeric(10, 2), default=1)
     unit_price = Column(Numeric(10, 2), nullable=False)
+    iva_porcentaje = Column(Numeric(5, 2), default=0)  # 0 = servicios médicos (tarifa 0%), 15 = tarifa general
     total = Column(Numeric(10, 2), nullable=False)
     invoice = relationship("Invoice", back_populates="items")
 

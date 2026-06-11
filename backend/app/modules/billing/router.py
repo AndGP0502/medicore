@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 import shutil, os
 from app.core.dependencies import get_db, get_current_user
@@ -51,3 +51,54 @@ def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)
 @router.post("/invoices/{invoice_id}/emitir")
 def emitir_factura(invoice_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return billing_service.emitir_factura_sri(db, invoice_id)
+
+
+# ── Correo electrónico ────────────────────────────────────────────────────
+
+from pydantic import BaseModel as _BaseModel
+from typing import Optional as _Optional
+
+
+class ConfigEmailIn(_BaseModel):
+    host: str
+    puerto: int
+    usuario: str
+    clave: _Optional[str] = ""
+    remitente_nombre: _Optional[str] = ""
+    usar_tls: bool = True
+    envio_automatico: bool = True
+
+
+class ReenvioIn(_BaseModel):
+    correo: _Optional[str] = None
+
+
+@router.get("/config-email")
+def get_config_email(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return billing_service.get_config_email_safe(db)
+
+
+@router.post("/config-email")
+def save_config_email(data: ConfigEmailIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return billing_service.save_config_email(db, data.model_dump())
+
+
+@router.post("/config-email/probar")
+def probar_config_email(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    from app.modules.billing.sri_models import ConfiguracionEmail
+    from app.sri.emailer import probar_conexion_smtp
+    cfg = db.query(ConfiguracionEmail).filter(ConfiguracionEmail.id == 1).first()
+    if not cfg:
+        raise HTTPException(status_code=400, detail="Primero guarda la configuración de correo.")
+    resultado = probar_conexion_smtp({
+        "host": cfg.host, "puerto": cfg.puerto, "usuario": cfg.usuario,
+        "clave": cfg.clave, "usar_tls": bool(cfg.usar_tls),
+    })
+    if not resultado["ok"]:
+        raise HTTPException(status_code=400, detail=resultado["error"])
+    return resultado
+
+
+@router.post("/invoices/{invoice_id}/reenviar-correo")
+def reenviar_correo(invoice_id: str, data: ReenvioIn, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return billing_service.reenviar_correo_factura(db, invoice_id, data.correo)

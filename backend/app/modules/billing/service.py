@@ -19,7 +19,10 @@ class BillingService:
 
     def create_invoice(self, db: Session, data: InvoiceCreate) -> Invoice:
         subtotal = sum(item.quantity * item.unit_price for item in data.items)
-        tax = subtotal * Decimal("0.15")
+        tax = sum(
+            item.quantity * item.unit_price * (item.iva_porcentaje / Decimal("100"))
+            for item in data.items
+        )
         invoice = Invoice(
             patient_id=data.patient_id,
             number=self._next_number(db),
@@ -36,6 +39,7 @@ class BillingService:
                 description=item.description,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
+                iva_porcentaje=item.iva_porcentaje,
                 total=item.quantity * item.unit_price
             ))
         db.commit()
@@ -155,13 +159,14 @@ class BillingService:
             precio = float(item.unit_price)
             cantidad = float(item.quantity)
             subtotal = precio * cantidad
-            iva = subtotal * 0.15
+            pct_iva = float(item.iva_porcentaje or 0)
+            iva = subtotal * (pct_iva / 100.0)
             detalles.append({
                 "descripcion": item.description,
                 "cantidad": cantidad,
                 "precio_unitario": precio,
                 "descuento": 0,
-                "porcentaje_iva": 15,
+                "porcentaje_iva": int(pct_iva),
                 "subtotal": subtotal,
                 "iva": iva,
                 "total": subtotal + iva,
@@ -206,11 +211,22 @@ class BillingService:
                 if resultado_auth.get("ok") or resultado_auth.get("estado") not in ("PENDIENTE", "ERROR"):
                     break
 
+            correo_resultado = None
             if resultado_auth.get("ok"):
                 config.siguiente_secuencial += 1
                 invoice.status = InvoiceStatus.PAID
                 db.commit()
                 print("=== [SRI] AUTORIZADO OK ===")
+
+                # PASO 5: guardar XML/RIDE y enviar correo (no rompe la emisión si falla)
+                try:
+                    correo_resultado = self._procesar_comprobante_autorizado(
+                        db, invoice, config, clave_acceso, resultado_auth, factura_dict
+                    )
+                except Exception as e:
+                    print(f"=== [CORREO] ERROR no fatal: {e} ===")
+                    traceback.print_exc()
+                    correo_resultado = {"ok": False, "error": str(e)}
 
             return {
                 "ok": resultado_auth.get("ok", False),
@@ -219,12 +235,134 @@ class BillingService:
                 "numero_autorizacion": resultado_auth.get("numero_autorizacion", ""),
                 "factura_id": invoice_id,
                 "mensajes": str(resultado_auth.get("mensajes", "")),
+                "correo": correo_resultado,
             }
 
         except Exception as e:
             print(f"=== [SRI] ERROR: {e} ===")
             traceback.print_exc()
             return {"ok": False, "error": str(e)}
+
+    # ──────────────────────────────────────────────────────────────────
+    # RIDE + correo
+    # ──────────────────────────────────────────────────────────────────
+
+    def _procesar_comprobante_autorizado(self, db, invoice, config, clave_acceso,
+                                         resultado_auth, factura_dict) -> dict:
+        """Guarda XML autorizado + RIDE en comprobantes/ y envía correo al cliente."""
+        from app.modules.billing.sri_models import ComprobanteEmitido, ConfiguracionEmail
+        from app.sri.ride import generar_ride
+        from app.sri.emailer import enviar_factura_correo
+
+        carpeta = os.path.join("comprobantes", clave_acceso[:8])  # subcarpeta por fecha ddmmyyyy
+        os.makedirs(carpeta, exist_ok=True)
+
+        xml_autorizado = resultado_auth.get("xml_autorizado", "")
+        numero_aut = resultado_auth.get("numero_autorizacion", clave_acceso)
+        fecha_aut = resultado_auth.get("fecha_autorizacion", "")
+
+        ruta_xml = os.path.join(carpeta, f"{clave_acceso}.xml")
+        with open(ruta_xml, "w", encoding="utf-8") as f:
+            f.write(xml_autorizado)
+
+        ruta_pdf = os.path.join(carpeta, f"{clave_acceso}.pdf")
+        generar_ride(xml_autorizado, numero_aut, fecha_aut, ruta_pdf)
+        print(f"=== [RIDE] Generado: {ruta_pdf} ===")
+
+        comp = ComprobanteEmitido(
+            invoice_id=str(invoice.id),
+            clave_acceso=clave_acceso,
+            numero_autorizacion=numero_aut,
+            fecha_autorizacion=fecha_aut,
+            ruta_xml=ruta_xml,
+            ruta_pdf=ruta_pdf,
+            correo_destinatario=factura_dict.get("correo", ""),
+        )
+        db.add(comp)
+        db.commit()
+        db.refresh(comp)
+
+        # Enviar correo si hay configuración y envío automático activo
+        cfg_email = db.query(ConfiguracionEmail).filter(ConfiguracionEmail.id == 1).first()
+        if not cfg_email:
+            return {"ok": False, "error": "Correo no configurado (Configuración → Correo)."}
+        if not cfg_email.envio_automatico:
+            return {"ok": False, "error": "Envío automático desactivado."}
+
+        return self._enviar_correo_comprobante(db, comp, config, cfg_email)
+
+    def _enviar_correo_comprobante(self, db, comp, config_sri, cfg_email) -> dict:
+        from app.sri.emailer import enviar_factura_correo
+        from lxml import etree
+
+        root = etree.fromstring(open(comp.ruta_xml, encoding="utf-8").read().encode("utf-8"))
+        numero = f"{root.findtext('.//estab')}-{root.findtext('.//ptoEmi')}-{root.findtext('.//secuencial')}"
+        total = root.findtext(".//importeTotal", "0.00")
+
+        resultado = enviar_factura_correo(
+            smtp_config={
+                "host": cfg_email.host, "puerto": cfg_email.puerto,
+                "usuario": cfg_email.usuario, "clave": cfg_email.clave,
+                "remitente_nombre": cfg_email.remitente_nombre,
+                "usar_tls": bool(cfg_email.usar_tls),
+            },
+            destinatario=comp.correo_destinatario,
+            razon_social_emisor=config_sri.razon_social,
+            numero_factura=numero,
+            importe_total=total,
+            ruta_xml=comp.ruta_xml,
+            ruta_pdf=comp.ruta_pdf,
+        )
+        comp.correo_enviado = 1 if resultado.get("ok") else 0
+        comp.correo_error = None if resultado.get("ok") else str(resultado.get("error", ""))[:500]
+        db.commit()
+        print(f"=== [CORREO] Resultado: {resultado} ===")
+        return resultado
+
+    def reenviar_correo_factura(self, db, invoice_id: str, correo_destino: str = None) -> dict:
+        """Reenvía el correo de una factura ya autorizada (opcionalmente a otro correo)."""
+        from app.modules.billing.sri_models import ComprobanteEmitido, ConfiguracionEmail
+
+        comp = (db.query(ComprobanteEmitido)
+                .filter(ComprobanteEmitido.invoice_id == invoice_id)
+                .order_by(ComprobanteEmitido.id.desc()).first())
+        if not comp:
+            raise HTTPException(status_code=404, detail="Esta factura no tiene comprobante autorizado.")
+        if correo_destino:
+            comp.correo_destinatario = correo_destino
+
+        config_sri = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
+        cfg_email = db.query(ConfiguracionEmail).filter(ConfiguracionEmail.id == 1).first()
+        if not cfg_email:
+            raise HTTPException(status_code=400, detail="No hay configuración de correo.")
+        return self._enviar_correo_comprobante(db, comp, config_sri, cfg_email)
+
+    def get_config_email_safe(self, db) -> dict:
+        from app.modules.billing.sri_models import ConfiguracionEmail
+        cfg = db.query(ConfiguracionEmail).filter(ConfiguracionEmail.id == 1).first()
+        if not cfg:
+            return {"configured": False}
+        return {
+            "configured": True, "host": cfg.host, "puerto": cfg.puerto,
+            "usuario": cfg.usuario, "remitente_nombre": cfg.remitente_nombre,
+            "usar_tls": bool(cfg.usar_tls), "envio_automatico": bool(cfg.envio_automatico),
+        }
+
+    def save_config_email(self, db, data: dict) -> dict:
+        from app.modules.billing.sri_models import ConfiguracionEmail
+        cfg = db.query(ConfiguracionEmail).filter(ConfiguracionEmail.id == 1).first()
+        if cfg:
+            for campo, valor in data.items():
+                if campo == "clave" and not valor:
+                    continue  # mantener clave existente si llega vacía
+                setattr(cfg, campo, int(valor) if campo in ("usar_tls", "envio_automatico") else valor)
+        else:
+            data["usar_tls"] = int(data.get("usar_tls", True))
+            data["envio_automatico"] = int(data.get("envio_automatico", True))
+            cfg = ConfiguracionEmail(id=1, **data)
+            db.add(cfg)
+        db.commit()
+        return {"ok": True}
 
 
 billing_service = BillingService()

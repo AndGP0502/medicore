@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List
 from uuid import UUID
 from decimal import Decimal
@@ -8,6 +8,14 @@ class InvoiceItemCreate(BaseModel):
     description: str
     quantity: Decimal = Decimal("1")
     unit_price: Decimal
+    iva_porcentaje: Decimal = Decimal("0")  # 0 = servicios medicos, 15 = tarifa general
+
+    @field_validator("iva_porcentaje")
+    @classmethod
+    def validar_iva(cls, v):
+        if v not in (Decimal("0"), Decimal("15")):
+            raise ValueError("El IVA debe ser 0 o 15")
+        return v
 
 class InvoiceCreate(BaseModel):
     patient_id: UUID
@@ -25,6 +33,7 @@ class InvoiceItemOut(BaseModel):
     description: str
     quantity: Decimal
     unit_price: Decimal
+    iva_porcentaje: Decimal = Decimal("0")
     total: Decimal
 
     class Config:
