@@ -9,3 +9,22 @@ build/
 certificados/
 *.p12
 *.db
+# Instalación de PostgreSQL / pgAdmin (binarios, no van al repo)
+pgsql/
+postgresql-*.zip
+
+# Instaladores generados
+dist_installer/
+*.exe
+
+# Variables de entorno y secretos
+.env
+
+# Dependencias y builds
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+dist/
+build/
