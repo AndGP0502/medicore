@@ -1,67 +1,24 @@
+import os
+os.environ["DATABASE_URL"] = "postgresql://medicore:medicore2024@localhost:5433/medicore"
+
 from app.database.session import SessionLocal
-from app.core.security import hash_password
-from sqlalchemy import text
-from datetime import datetime
-import uuid
+from app.modules.auth.models import User, Role
+from app.core.security import hash_password as get_password_hash
 
 db = SessionLocal()
-now = datetime.now().isoformat()
-password = hash_password("admin123")
+rol = db.query(Role).filter_by(name="admin").first()
+if not rol:
+    rol = Role(name="admin", description="Administrador")
+    db.add(rol); db.commit(); db.refresh(rol)
 
-role = db.execute(
-    text("SELECT id FROM roles WHERE name = :name"),
-    {"name": "admin"}
-).fetchone()
-
-if role:
-    role_id = role[0]
+u = db.query(User).filter_by(email="admin@medicore.com").first()
+if not u:
+    u = User(email="admin@medicore.com",
+             hashed_password=get_password_hash("Admin123!"),
+             full_name="Administrador", role_id=rol.id, is_active=True)
+    db.add(u); db.commit()
+    print("Creado: admin@medicore.com / Admin123!")
 else:
-    role_id = str(uuid.uuid4())
-    db.execute(text("""
-    INSERT INTO roles (id, name, description, created_at, updated_at)
-    VALUES (:id, :name, :description, :created_at, :updated_at)
-    """), {
-        "id": role_id,
-        "name": "admin",
-        "description": "Administrador del sistema",
-        "created_at": now,
-        "updated_at": now
-    })
+    u.hashed_password = get_password_hash("Admin123!")
     db.commit()
-
-user = db.execute(
-    text("SELECT id FROM users WHERE email = :email"),
-    {"email": "admin@medicore.com"}
-).fetchone()
-
-if user:
-    db.execute(text("""
-    UPDATE users 
-    SET hashed_password = :password, role_id = :role_id, is_active = 1, updated_at = :updated_at
-    WHERE email = :email
-    """), {
-        "password": password,
-        "role_id": role_id,
-        "updated_at": now,
-        "email": "admin@medicore.com"
-    })
-    print("Admin actualizado correctamente")
-else:
-    user_id = str(uuid.uuid4())
-    db.execute(text("""
-    INSERT INTO users (id, email, hashed_password, full_name, role_id, is_active, created_at, updated_at)
-    VALUES (:id, :email, :password, :name, :role_id, :active, :created_at, :updated_at)
-    """), {
-        "id": user_id,
-        "email": "admin@medicore.com",
-        "password": password,
-        "name": "Administrador",
-        "role_id": role_id,
-        "active": 1,
-        "created_at": now,
-        "updated_at": now
-    })
-    print("Admin creado correctamente")
-
-db.commit()
-db.close()
+    print("Clave reseteada: admin@medicore.com / Admin123!")

@@ -254,7 +254,10 @@ class BillingService:
         from app.sri.ride import generar_ride
         from app.sri.emailer import enviar_factura_correo
 
-        carpeta = os.path.join("comprobantes", clave_acceso[:8])  # subcarpeta por fecha ddmmyyyy
+        carpeta = os.path.join(
+            os.environ.get("MEDICORE_COMP_DIR", "comprobantes"),
+            clave_acceso[:8]
+        )
         os.makedirs(carpeta, exist_ok=True)
 
         xml_autorizado = resultado_auth.get("xml_autorizado", "")
@@ -266,7 +269,9 @@ class BillingService:
             f.write(xml_autorizado)
 
         ruta_pdf = os.path.join(carpeta, f"{clave_acceso}.pdf")
-        generar_ride(xml_autorizado, numero_aut, fecha_aut, ruta_pdf)
+        logo = os.path.join(os.environ.get("MEDICORE_CERT_DIR", "certificados"), "logo.png")
+        generar_ride(xml_autorizado, numero_aut, fecha_aut, ruta_pdf,
+                     logo_path=logo if os.path.exists(logo) else None)
         print(f"=== [RIDE] Generado: {ruta_pdf} ===")
 
         comp = ComprobanteEmitido(

@@ -40,13 +40,34 @@ def save_config_sri(data: ConfigSRICreate, db: Session = Depends(get_db), _=Depe
 @router.post("/config-sri/upload-certificado")
 def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)):
     if not file.filename.endswith('.p12'):
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Solo se permiten archivos .p12")
-    dest = os.path.join("certificados", "firma.p12")
-    os.makedirs("certificados", exist_ok=True)
+    from pathlib import Path
+    # En produccion usa %APPDATA%/MediCore/certificados; en dev usa backend/certificados
+    cert_dir = Path(os.environ.get("MEDICORE_CERT_DIR", "certificados"))
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    dest = cert_dir / "firma.p12"
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    return {"message": "Certificado subido correctamente", "path": os.path.abspath(dest)}
+    return {"message": "Certificado subido correctamente", "path": str(dest.resolve())}
+
+@router.post("/config-sri/upload-logo")
+def upload_logo(file: UploadFile = File(...), _=Depends(get_current_user)):
+    ext = file.filename.lower().rsplit(".", 1)[-1]
+    if ext not in ("png", "jpg", "jpeg"):
+        raise HTTPException(status_code=400, detail="Solo se permiten imagenes PNG o JPG")
+    from pathlib import Path
+    cert_dir = Path(os.environ.get("MEDICORE_CERT_DIR", "certificados"))
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    dest = cert_dir / "logo.png"
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"message": "Logo subido correctamente", "path": str(dest.resolve())}
+
+@router.get("/config-sri/logo-status")
+def logo_status(_=Depends(get_current_user)):
+    from pathlib import Path
+    logo = Path(os.environ.get("MEDICORE_CERT_DIR", "certificados")) / "logo.png"
+    return {"existe": logo.exists()}
 
 @router.post("/invoices/{invoice_id}/emitir")
 def emitir_factura(invoice_id: str, db: Session = Depends(get_db), _=Depends(get_current_user)):

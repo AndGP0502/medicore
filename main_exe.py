@@ -42,10 +42,13 @@ FROZEN = getattr(sys, "frozen", False)
 if FROZEN:
     # Empaquetado: base = carpeta de MediCore.exe
     BASE_DIR   = Path(sys.executable).parent
+    MEIPASS    = Path(getattr(sys, "_MEIPASS", BASE_DIR))  # _internal en PyInstaller 6
     APP_DATA   = Path(os.environ.get("APPDATA", BASE_DIR)) / "MediCore"
     CERT_DIR   = APP_DATA / "certificados"
     COMP_DIR   = APP_DATA / "comprobantes"
-    FRONTEND_DIR = BASE_DIR / "frontend"   # dist/ copiado por PyInstaller
+    FRONTEND_DIR = MEIPASS / "frontend"
+    if not FRONTEND_DIR.exists():
+        FRONTEND_DIR = BASE_DIR / "frontend"
 else:
     # Desarrollo normal
     BASE_DIR   = Path(__file__).parent.parent
@@ -89,11 +92,41 @@ def _migraciones_automaticas():
     except Exception as e:
         print(f"=== [MIGRACION] Aviso tablas: {e} ===")
 
+def _crear_admin_inicial():
+    """Crea rol y usuario admin si la tabla de usuarios esta vacia."""
+    from app.database.session import SessionLocal
+    from app.modules.auth.models import User, Role
+    from app.core.security import hash_password
+    db = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            rol = db.query(Role).filter_by(name="admin").first()
+            if not rol:
+                rol = Role(name="admin", description="Administrador del sistema")
+                db.add(rol)
+                db.commit()
+                db.refresh(rol)
+            admin = User(
+                email="admin@medicore.com",
+                hashed_password=hash_password("Admin123!"),
+                full_name="Administrador",
+                role_id=rol.id,
+                is_active=True,
+            )
+            db.add(admin)
+            db.commit()
+            print("=== [SEED] Admin creado: admin@medicore.com / Admin123! ===")
+    except Exception as e:
+        print(f"=== [SEED] Aviso: {e} ===")
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migraciones_automaticas()
+    _crear_admin_inicial()
     yield
 
 
