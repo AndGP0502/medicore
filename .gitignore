@@ -31,3 +31,11 @@ build/
 # Datos locales (nunca versionar)
 pgdata/
 comprobantes/
+
+# Scripts y XMLs de debug locales (escritorio) — no versionar
+backend/test_*.py
+backend/test_*.xml
+backend/debug_xml_*.xml
+backend/_patch.py
+tempCodeRunnerFile.py
+desktop.ini

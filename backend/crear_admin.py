@@ -13,14 +13,19 @@ if not rol:
     rol = Role(name="admin", description="Administrador")
     db.add(rol); db.commit(); db.refresh(rol)
 
-u = db.query(User).filter_by(email="admin@medicore.com").first()
+import getpass
+
+email = os.environ.get("ADMIN_EMAIL", "admin@medicore.com")
+password = os.environ.get("ADMIN_PASSWORD") or getpass.getpass(f"Clave para {email}: ")
+
+u = db.query(User).filter_by(email=email).first()
 if not u:
-    u = User(email="admin@medicore.com",
-             hashed_password=get_password_hash("Admin123!"),
+    u = User(email=email,
+             hashed_password=get_password_hash(password),
              full_name="Administrador", role_id=rol.id, is_active=True)
     db.add(u); db.commit()
-    print("Creado: admin@medicore.com / Admin123!")
+    print(f"Creado: {email}")
 else:
-    u.hashed_password = get_password_hash("Admin123!")
+    u.hashed_password = get_password_hash(password)
     db.commit()
-    print("Clave reseteada: admin@medicore.com / Admin123!")
+    print(f"Clave reseteada: {email}")

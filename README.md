@@ -20,10 +20,13 @@ CRM para consultorios médicos, diseñado para optimizar la administración de p
 
 ## Cómo ejecutarlo
 
-1. Clonar el repositorio:  https://github.com/AndGP0502/medicore.git
+1. Clonar el repositorio: https://github.com/AndGP0502/medicore.git
+2. Backend: crear venv en `backend/`, `pip install -r requirements.txt`, definir `.env` (ver `deploy/medicore.env.example`) y correr `uvicorn app.main:app`.
+3. Frontend: `npm install && npm run dev` en `frontend/`.
 
-2. 2. Instalar dependencias necesarias.
-3. Ejecutar el archivo principal del proyecto.
+## Despliegue en producción (VPS)
+
+Ver [DEPLOYMENT.md](DEPLOYMENT.md) — aprovisionamiento completo con un solo script (`deploy/setup_vps.sh`): HTTPS automático, Postgres y Ollama solo en localhost, backups diarios y systemd.
 
 ## Autor
 

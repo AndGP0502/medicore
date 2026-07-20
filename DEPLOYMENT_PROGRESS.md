@@ -87,6 +87,20 @@ cd /opt/medicore/backend && set -a && . /etc/medicore/medicore.env && set +a && 
 - Núcleo de firma (`signer/xml_generator/sri_client/ride/emailer`) intacto.
 - Referencia completa del funcionamiento local + código original: `SRI_FACTURADOR_LOCAL.md`
 
+## Preparación para GitHub (2026-07-19)
+
+- Retirados del índice (siguen en disco, ignorados): scripts de debug
+  `backend/test_*.py` (uno contenía la clave del .p12), `debug_xml_*.xml` y
+  `test_*.xml` (facturas reales firmadas), `_patch.py`, `tempCodeRunnerFile.py`,
+  `desktop.ini`.
+- `crear_admin.py` ya no hardcodea `admin@medicore.com / Admin123!`: usa
+  `ADMIN_EMAIL`/`ADMIN_PASSWORD` o pide la clave por consola.
+- README actualizado con instrucciones reales + enlace a DEPLOYMENT.md.
+- `git push origin main` hará fast-forward limpio (verificado contra origin).
+- **Pendiente consciente**: el historial remoto ya contiene el .p12, su clave y
+  datos de pacientes (fueron pusheados antes). Limpiarlo requiere `git
+  filter-repo` + force push + rotar el certificado — decisión del usuario.
+
 ## Bloqueos / datos que faltan del usuario
 
 1. **IP del VPS y acceso SSH** — no proporcionados aún.

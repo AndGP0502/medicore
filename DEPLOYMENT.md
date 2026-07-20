@@ -25,7 +25,8 @@ git clone https://github.com/AndGP0502/medicore.git /opt/medicore
 DOMAIN=medicore.tudominio.com ACME_EMAIL=tu@correo.com \
     bash /opt/medicore/deploy/setup_vps.sh
 
-# 3. Crear el usuario administrador
+# 3. Crear el usuario administrador (pide la clave por consola;
+#    o defínela vía ADMIN_EMAIL / ADMIN_PASSWORD)
 cd /opt/medicore/backend
 set -a && . /etc/medicore/medicore.env && set +a
 ./venv/bin/python crear_admin.py
