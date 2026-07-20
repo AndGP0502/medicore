@@ -9,7 +9,7 @@ starlette==0.38.4
 
 # Base de datos
 sqlalchemy==2.0.35
-psycopg2-binary==2.9.9
+psycopg2-binary>=2.9.10
 
 # Validación / configuración
 pydantic==2.9.2
