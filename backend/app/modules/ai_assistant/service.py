@@ -1,8 +1,10 @@
 import requests
 import json
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3.2"
+from app.core.config import settings
+
+OLLAMA_URL = settings.OLLAMA_URL
+MODEL = settings.OLLAMA_MODEL
 
 SYSTEM_PROMPT = """Eres un asistente clinico medico especializado integrado en el sistema MediCore.
 Tu funcion es ayudar a los medicos durante las consultas.

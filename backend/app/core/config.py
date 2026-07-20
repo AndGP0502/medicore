@@ -13,6 +13,21 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 10
 
+    # Producción: lista separada por comas, ej. "https://medicore.ec,https://www.medicore.ec"
+    CORS_ORIGINS: str = ""
+
+    # Ollama (IA) — solo accesible desde localhost del servidor
+    OLLAMA_URL: str = "http://127.0.0.1:11434/api/generate"
+    OLLAMA_MODEL: str = "llama3.2"
+
+    # Rate limiting del login: intentos permitidos por IP dentro de la ventana
+    LOGIN_RATE_LIMIT_ATTEMPTS: int = 5
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -120,8 +120,15 @@ class BillingService:
         if not config:
             raise HTTPException(status_code=400, detail="No hay configuracion SRI.")
 
+        # Si la ruta guardada en DB no existe (ej. DB migrada desde otro equipo),
+        # usar el .p12 estándar del directorio de certificados del servidor
         if not config.ruta_certificado or not os.path.exists(config.ruta_certificado):
-            raise HTTPException(status_code=400, detail="No hay certificado .p12 cargado.")
+            fallback = os.path.join(os.environ.get("MEDICORE_CERT_DIR", "certificados"), "firma.p12")
+            if os.path.exists(fallback):
+                config.ruta_certificado = fallback
+                db.commit()
+            else:
+                raise HTTPException(status_code=400, detail="No hay certificado .p12 cargado.")
 
         if not config.clave_certificado:
             raise HTTPException(status_code=400, detail="Falta la clave del certificado .p12.")
@@ -179,10 +186,14 @@ class BillingService:
             print(f"=== [SRI] Ambiente: {config.ambiente}")
             print(f"=== [SRI] RUC: {config.ruc}")
 
-            # Guardar XML sin firmar para debug y para Java
-            with open("debug_xml_sin_firmar.xml", "w", encoding="utf-8") as f:
-                f.write(xml_content)
-            print("=== XML sin firmar guardado ===")
+            # Guardar XML sin firmar para debug (no fatal si no se puede escribir)
+            try:
+                debug_dir = os.environ.get("MEDICORE_COMP_DIR", "comprobantes")
+                with open(os.path.join(debug_dir, "debug_xml_sin_firmar.xml"), "w", encoding="utf-8") as f:
+                    f.write(xml_content)
+                print("=== XML sin firmar guardado ===")
+            except OSError as e:
+                print(f"=== [DEBUG] No se pudo guardar XML sin firmar: {e} ===")
 
             print("=== [SRI] PASO 2: Firmando XML ===")
             xml_firmado = firmar_xml(xml_content, config.ruta_certificado, config.clave_certificado)
@@ -190,10 +201,13 @@ class BillingService:
             print(f"=== XML firmado length: {len(xml_firmado)}")
             print(f"=== XML firmado inicio: {xml_firmado[:200]}")
 
-            # Guardar XML firmado para debug
-            with open("debug_xml_firmado.xml", "w", encoding="utf-8") as f:
-                f.write(xml_firmado)
-            print("=== XML firmado guardado ===")
+            # Guardar XML firmado para debug (no fatal si no se puede escribir)
+            try:
+                with open(os.path.join(debug_dir, "debug_xml_firmado.xml"), "w", encoding="utf-8") as f:
+                    f.write(xml_firmado)
+                print("=== XML firmado guardado ===")
+            except OSError as e:
+                print(f"=== [DEBUG] No se pudo guardar XML firmado: {e} ===")
 
             print("=== [SRI] PASO 3: Enviando al SRI ===")
             resultado_envio = enviar_comprobante(xml_firmado, config.ambiente)

@@ -1,0 +1,35 @@
+# MediCore — Caddyfile de producción
+# setup_vps.sh reemplaza __DOMAIN__ y __ACME_EMAIL__ y lo instala en /etc/caddy/Caddyfile
+# Caddy gestiona Let's Encrypt y la redirección HTTP→HTTPS automáticamente.
+
+{
+	email __ACME_EMAIL__
+}
+
+__DOMAIN__ {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# API → backend FastAPI (solo escucha en 127.0.0.1:8000)
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle /health {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Frontend React (build estático)
+	handle {
+		root * /opt/medicore/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}
