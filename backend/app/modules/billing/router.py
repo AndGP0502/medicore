@@ -33,9 +33,11 @@ def add_payment(data: PaymentCreate, db: Session = Depends(get_db), _=Depends(ge
 def get_config_sri(db: Session = Depends(get_db), _=Depends(get_current_user)):
     return billing_service.get_config_sri_safe(db)
 
-@router.post("/config-sri", response_model=ConfigSRIOut)
+@router.post("/config-sri")
 def save_config_sri(data: ConfigSRICreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return billing_service.save_config_sri(db, data)
+    # No devolver clave_certificado/clave_sri al navegador (ver SRI_FACTURADOR_LOCAL.md)
+    billing_service.save_config_sri(db, data)
+    return billing_service.get_config_sri_safe(db)
 
 @router.post("/config-sri/upload-certificado")
 def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)):

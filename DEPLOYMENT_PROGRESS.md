@@ -75,6 +75,18 @@ DOMAIN=<dominio> ACME_EMAIL=<correo> bash /opt/medicore/deploy/setup_vps.sh
 cd /opt/medicore/backend && set -a && . /etc/medicore/medicore.env && set +a && ./venv/bin/python crear_admin.py
 ```
 
+## Facturador SRI — probado para web (2026-07-19)
+
+- Pipeline local verificado con el .p12 real: XML + firma XAdES OK; envío SOAP a
+  celcer responde (error 35 ambiental: RUC no habilitado en pruebas — la
+  estructura es idéntica a comprobantes ya autorizados en producción el 11/06/2026).
+- **Veredicto: funcional en web** sin dependencias de escritorio. 3 ajustes aplicados:
+  1. `POST /billing/config-sri` ya no devuelve `clave_certificado`/`clave_sri` al navegador
+  2. XMLs de debug → `$MEDICORE_COMP_DIR`, no fatales
+  3. Fallback del cert a `$MEDICORE_CERT_DIR/firma.p12` si la ruta en DB no existe
+- Núcleo de firma (`signer/xml_generator/sri_client/ride/emailer`) intacto.
+- Referencia completa del funcionamiento local + código original: `SRI_FACTURADOR_LOCAL.md`
+
 ## Bloqueos / datos que faltan del usuario
 
 1. **IP del VPS y acceso SSH** — no proporcionados aún.
