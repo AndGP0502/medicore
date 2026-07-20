@@ -1,5 +1,5 @@
 import os
-os.environ["DATABASE_URL"] = "postgresql://medicore:medicore2024@localhost:5433/medicore"
+os.environ["DATABASE_URL"] = "postgresql://medicore:medicore@localhost:5432/medicore_db"
 
 from app.database.session import SessionLocal
 from app.modules.auth.models import User, Role
