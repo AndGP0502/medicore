@@ -28,3 +28,6 @@ venv/
 .venv/
 dist/
 build/
+# Datos locales (nunca versionar)
+pgdata/
+comprobantes/

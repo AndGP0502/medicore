@@ -111,6 +111,8 @@ app = FastAPI(
 origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
 if not FROZEN:
     origins += [settings.FRONTEND_URL, "http://localhost:5173"]
+# En VPS: CORS_ORIGINS en .env define los dominios reales permitidos
+origins += settings.cors_origins_list
 
 app.add_middleware(
     CORSMiddleware,

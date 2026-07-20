@@ -1,5 +1,7 @@
 import os
-os.environ["DATABASE_URL"] = "postgresql://medicore:medicore2024@localhost:5433/medicore"
+# Solo usa la DB local portable si no hay DATABASE_URL definida (en el VPS
+# viene de /etc/medicore/medicore.env)
+os.environ.setdefault("DATABASE_URL", "postgresql://medicore:medicore2024@localhost:5433/medicore")
 
 from app.database.session import SessionLocal
 from app.modules.auth.models import User, Role
