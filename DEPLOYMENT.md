@@ -80,6 +80,18 @@ systemctl restart medicore-backend      # reinicio manual
 ```
 Además hay un healthcheck cada 5 min que reinicia el backend si `/health` no responde.
 
+### Suspender / reactivar por pago (multi-cliente)
+En el VPS de cada cliente, para cortar o restablecer el acceso según el pago:
+```bash
+/opt/medicore/deploy/manage_service.sh suspend   # corta: muestra página de suspensión y detiene el backend
+/opt/medicore/deploy/manage_service.sh restore   # reactiva tras el pago
+/opt/medicore/deploy/manage_service.sh status    # ver estado actual
+```
+Al suspender, `https://dominio` muestra `deploy/suspension.html` (con tu correo de
+soporte) y el backend queda detenido — la app es inaccesible pero los datos y
+backups permanecen intactos. `restore` deja todo como estaba. El healthcheck NO
+reactiva un servicio suspendido (se deshabilita `medicore-backend` al suspender).
+
 ## Certificado SRI (facturación electrónica)
 
 El certificado actual (Lazzate) **no es válido** en la cadena de confianza de
