@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getInvoices, createInvoice, addPayment, deleteInvoice, emitirFactura, getConfigSRI } from '../../api/billing'
 import { getPatients } from '../../api/patients'
 import ConfigSRIPage from './sri/ConfigSRIPage'
+import ConfigEmailPage from './sri/ConfigEmailPage'
 import toast from 'react-hot-toast'
 
 const STATUS = {
@@ -205,6 +206,7 @@ export default function BillingPage() {
   const [paymentInvoice, setPaymentInvoice] = useState(null)
   const [printInvoice, setPrintInvoice] = useState(null)
   const [showConfigSRI, setShowConfigSRI] = useState(false)
+  const [showConfigEmail, setShowConfigEmail] = useState(false)
   const [emitiendo, setEmitiendo] = useState(null)
 
   const { data, isLoading } = useQuery({
@@ -254,6 +256,7 @@ export default function BillingPage() {
       {paymentInvoice && <PaymentModal invoice={paymentInvoice} onClose={() => setPaymentInvoice(null)} />}
       {printInvoice && <PrintModal invoice={printInvoice} onClose={() => setPrintInvoice(null)} />}
       {showConfigSRI && <ConfigSRIPage onClose={() => setShowConfigSRI(false)} />}
+      {showConfigEmail && <ConfigEmailPage onClose={() => setShowConfigEmail(false)} />}
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
@@ -264,6 +267,10 @@ export default function BillingPage() {
           <button onClick={() => setShowConfigSRI(true)}
             style={{ padding: '0.6rem 1.25rem', background: sriConfigurado ? '#dcfce7' : '#fee2e2', color: sriConfigurado ? '#16a34a' : '#dc2626', border: `1.5px solid ${sriConfigurado ? '#16a34a' : '#dc2626'}`, borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
             {sriConfigurado ? 'SRI Configurado' : 'Configurar SRI'}
+          </button>
+          <button onClick={() => setShowConfigEmail(true)}
+            style={{ padding: '0.6rem 1.25rem', background: 'white', color: '#0a3d6b', border: '1.5px solid #d5dfeb', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Correo
           </button>
           <button onClick={() => setShowModal(true)} style={{ padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #0a3d6b, #0d5fa3)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
             + Nueva factura

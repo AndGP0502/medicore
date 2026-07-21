@@ -89,7 +89,10 @@ class BillingService:
             "ambiente": config.ambiente,
             "tipo_emision": config.tipo_emision,
             "siguiente_secuencial": config.siguiente_secuencial,
-            "tiene_certificado": bool(config.ruta_certificado and os.path.exists(config.ruta_certificado)),
+            "tiene_certificado": bool(
+                (config.ruta_certificado and os.path.exists(config.ruta_certificado))
+                or os.path.exists(os.path.join(os.environ.get("MEDICORE_CERT_DIR", "certificados"), "firma.p12"))
+            ),
         }
 
     def get_config_sri(self, db: Session) -> ConfiguracionSRI:
@@ -100,11 +103,12 @@ class BillingService:
 
     def save_config_sri(self, db: Session, data: ConfigSRICreate) -> ConfiguracionSRI:
         config = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
+        # exclude_none: no pisar clave/ruta del certificado cuando el form las omite
         if config:
-            for field, value in data.model_dump().items():
+            for field, value in data.model_dump(exclude_none=True).items():
                 setattr(config, field, value)
         else:
-            config = ConfiguracionSRI(id=1, **data.model_dump())
+            config = ConfiguracionSRI(id=1, **data.model_dump(exclude_none=True))
             db.add(config)
         db.commit()
         db.refresh(config)

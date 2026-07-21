@@ -87,6 +87,21 @@ cd /opt/medicore/backend && set -a && . /etc/medicore/medicore.env && set +a && 
 - Núcleo de firma (`signer/xml_generator/sri_client/ride/emailer`) intacto.
 - Referencia completa del funcionamiento local + código original: `SRI_FACTURADOR_LOCAL.md`
 
+## Bug UI Configuración SRI — resuelto (2026-07-20)
+
+- `frontend/src/pages/billing/sri/ConfigSRIPage.jsx` contenía por error el
+  componente de correo → "Configurar SRI" abría la config de correo.
+- Reescrito como formulario SRI real (RUC, razón social, establecimiento,
+  ambiente, subida de .p12 y logo, clave con patrón "vacío = mantener").
+- Nuevo `ConfigEmailPage.jsx` en `src/pages/billing/sri/` + botón "Correo" en
+  BillingPage (antes la config de correo no era accesible desde la UI).
+- Backend: `save_config_sri` usa `exclude_none` (no pisa claves guardadas);
+  `upload-certificado` registra la ruta en DB; `tiene_certificado` con fallback.
+- Eliminadas copias viejas sueltas `frontend/BillingPage.jsx` y
+  `frontend/ConfigEmailPage.jsx` (origen del copy-paste erróneo).
+- Verificado en navegador: login → Facturación → ambos modales, guardado con
+  toast, cert "cargado ✓", y API probada (sin fuga de claves, clave conservada).
+
 ## Preparación para GitHub (2026-07-19)
 
 - Retirados del índice (siguen en disco, ignorados): scripts de debug

@@ -40,7 +40,7 @@ def save_config_sri(data: ConfigSRICreate, db: Session = Depends(get_db), _=Depe
     return billing_service.get_config_sri_safe(db)
 
 @router.post("/config-sri/upload-certificado")
-def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)):
+def upload_certificado(file: UploadFile = File(...), db: Session = Depends(get_db), _=Depends(get_current_user)):
     if not file.filename.endswith('.p12'):
         raise HTTPException(status_code=400, detail="Solo se permiten archivos .p12")
     from pathlib import Path
@@ -50,6 +50,12 @@ def upload_certificado(file: UploadFile = File(...), _=Depends(get_current_user)
     dest = cert_dir / "firma.p12"
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
+    # Registrar la ruta en la configuración si ya existe (antes lo hacía el form de escritorio)
+    from app.modules.billing.sri_models import ConfiguracionSRI
+    config = db.query(ConfiguracionSRI).filter(ConfiguracionSRI.id == 1).first()
+    if config:
+        config.ruta_certificado = str(dest.resolve())
+        db.commit()
     return {"message": "Certificado subido correctamente", "path": str(dest.resolve())}
 
 @router.post("/config-sri/upload-logo")
